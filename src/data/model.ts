@@ -2,6 +2,10 @@ type ProcessingCallback<P> = (process: P) => void;
 type ErrorCallback<E> = (error: E) => void;
 type SucessCallback<S> = (success: S) => void;
 
+export type PipelineConfiguration = {
+  blocksize: number;
+};
+
 export type StepCallBack<P = void, E = void, S = void> = {
   processing: ProcessingCallback<P>;
   error: ErrorCallback<E>;

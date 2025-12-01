@@ -1,0 +1,24 @@
+
+syntax = "proto3";
+
+package mmpio;
+option go_package = "github.com/majorseitan/MMP_2024/mmp-io;lib";
+
+message Variant {
+  uint32 chromosome = 1;
+  uint64 position = 2;
+  string ref = 3;
+  string alt = 4;
+}
+
+message AssociationStatistic {
+  float pValue = 1;
+  float beta = 2;
+  float sebeta = 3;
+  float af = 4;
+}
+
+message SummaryRecord {
+  Variant variant = 1;
+  AssociationStatistic associationStatistic = 2;
+}

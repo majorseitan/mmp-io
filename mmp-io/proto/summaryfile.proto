@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option go_package = "github.com/majorseitan/MMP_2024/mmp-io;lib";
+
+package summaryfile;
+
+// VariantKey represents a variant identifier in the format "chrom\tpos\tref\talt"
+// Note: Protobuf doesn't support type aliases, but we use string with this semantic meaning
+// type VariantKey = string
+
+// SummaryHeader contains the column names for the summary data
+message SummaryHeader {
+  repeated string columns = 1;
+}
+
+// SummaryValues contains the values for a single variant row
+message SummaryValues {
+  repeated string values = 1;
+}
+
+// SummaryRows contains a map of variant (VariantKey) to values
+message SummaryRows {
+  map<string, SummaryValues> rows = 1;  // key is VariantKey: "chrom\tpos\tref\talt"
+}
+
+// SummaryFile represents the complete summary file structure
+message SummaryFile {
+  repeated string header = 1;
+  repeated SummaryRows rows = 2;
+}

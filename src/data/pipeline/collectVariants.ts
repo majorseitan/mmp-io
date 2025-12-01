@@ -1,5 +1,5 @@
 import { readFileInBlocks } from "../fileReader";
-import { toGoFileColumnsDefinition, type BlockMetadata, type GoFileColumnsDefinition, type LocalFileConfiguration , type StepCallBack } from "../model";
+import { toGoFileColumnsDefinition, type BlockMetadata, type GoFileColumnsDefinition, type LocalFileConfiguration , type PipelineConfiguration, type StepCallBack } from "../model";
 
 
 export const createFileColumnsIndex = (localFile: LocalFileConfiguration, header: Uint8Array<ArrayBufferLike>) : BlockMetadata => {
@@ -9,27 +9,33 @@ export const createFileColumnsIndex = (localFile: LocalFileConfiguration, header
     return metadata;
 }
 
+export const bufferVariants = (buffer: Uint8Array<ArrayBufferLike>, metadata: BlockMetadata) : string[] => {
+    const result = (window as any).BufferVariants(buffer, JSON.stringify(metadata));
+    return result as string[];
+}
+
 export const collectVariants = async (
     localFile : LocalFileConfiguration,
+    pipelineConfig: PipelineConfiguration,
     setCallBack: StepCallBack
 ): Promise<string[]> => {
     setCallBack.processing()
-    const generator = readFileInBlocks(localFile.file, 128 * 1024 * 1024);
+    const generator = readFileInBlocks(localFile.file, pipelineConfig.blocksize);
     const firstResult = await generator.next();
     
     if (firstResult.done) { 
         setCallBack.success();
         return []; 
     }
-    
+    const result : string[] = [];
     const { chunk: header } = firstResult.value;
     const metadata = createFileColumnsIndex(localFile, header);
 
     // Now loop through the remaining rows
     for await (const { chunk: row } of generator) {
-
-        // Process each row
+        const variants = bufferVariants(row, metadata);
+        result.push(...variants);
     }
     setCallBack.success();
-    return [];
+    return result;
 }

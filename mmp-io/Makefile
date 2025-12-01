@@ -4,7 +4,7 @@ V=1
 all: build
 
 # Build the WebAssembly binary
-build:
+build: lib/mmp-io.pb.go
 	GOOS=js GOARCH=wasm go build -o main.wasm ./wasm
 
 # Run tests
@@ -17,6 +17,9 @@ copy: build
 	mkdir -p ../public/wasm
 	cp main.wasm ../public/wasm/
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" ../public/wasm/
+
+lib/mmp-io.pb.go: proto/*.proto buf.yaml buf.gen.yaml
+	buf generate
 
 # Clean build artifacts
 clean:

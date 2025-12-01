@@ -1,11 +1,11 @@
 package lib
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
+"encoding/json"
+"fmt"
+"strings"
 
-	"github.com/go-playground/validator/v10"
+"github.com/go-playground/validator/v10"
 )
 
 var validate = validator.New()
@@ -130,3 +130,5 @@ func CreateFileColumnsIndex(header []byte, configuration FileConfiguration) (Blo
 	}, nil
 
 }
+
+// VariantsBytesWithIndex

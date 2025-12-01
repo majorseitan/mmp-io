@@ -17,6 +17,6 @@ func hello(this js.Value, args []js.Value) interface{} {
 
 func main() {
 	fmt.Println("Hello from Go WebAssembly!")
-	registerCallbacks([]interface{}{hello, lib.CreateFileColumnsIndex})
+	registerCallbacks([]interface{}{hello, lib.CreateFileColumnsIndex, lib.BufferVariants})
 	select {}
 }

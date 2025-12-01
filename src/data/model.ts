@@ -3,7 +3,7 @@ type ErrorCallback<E> = (error: E) => void;
 type SucessCallback<S> = (success: S) => void;
 
 export type PipelineConfiguration = {
-  blocksize: number;
+  buffersize: number;
 };
 
 export type StepCallBack<P = void, E = void, S = void> = {
@@ -97,3 +97,15 @@ export type BlockMetadata = FileColumnsIndex & {
   pval_threshold: number;
   delimiter: string;
 };
+
+
+// what is an intutive name for these types
+export type SummaryRow = string[]
+// Protobuf marshaled SummaryRows for one partition
+export type SummaryBlock = Uint8Array
+// All blocks from all partitions in one pass
+export type SummaryPass = SummaryBlock[]
+// all the passes
+export type SummmryPassAcumulator = SummaryPass[]
+
+export type VariantPartitions = string[][];

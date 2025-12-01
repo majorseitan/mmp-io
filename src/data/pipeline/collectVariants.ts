@@ -20,7 +20,7 @@ export const collectVariants = async (
     setCallBack: StepCallBack
 ): Promise<string[]> => {
     setCallBack.processing()
-    const generator = readFileInBlocks(localFile.file, pipelineConfig.blocksize);
+    const generator = readFileInBlocks(localFile.file, pipelineConfig.buffersize);
     const firstResult = await generator.next();
     
     if (firstResult.done) { 

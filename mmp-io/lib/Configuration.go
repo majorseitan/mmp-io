@@ -1,11 +1,11 @@
 package lib
 
 import (
-"encoding/json"
-"fmt"
-"strings"
+	"encoding/json"
+	"fmt"
+	"strings"
 
-"github.com/go-playground/validator/v10"
+	"github.com/go-playground/validator/v10"
 )
 
 var validate = validator.New()
@@ -37,6 +37,8 @@ type BlockMetadata struct {
 	PvalThreshold float32 `json:"pval_threshold" validate:"required"`
 	Delimiter     string  `json:"delimiter" validate:"required"`
 }
+
+type VariantPartitions = [][]string
 
 func ParseFileConfiguration(data []byte, logger func(string)) (FileConfiguration, error) {
 	var fileConfiguration FileConfiguration

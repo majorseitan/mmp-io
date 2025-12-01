@@ -20,7 +20,10 @@ func jsToGo(v js.Value, targetT reflect.Type) (reflect.Value, error) {
 		return ptr, nil
 	}
 
-	switch targetT.Kind() {
+	// Get the underlying kind for type aliases
+	kind := targetT.Kind()
+
+	switch kind {
 	case reflect.String:
 		return reflect.ValueOf(v.String()).Convert(targetT), nil
 
@@ -49,18 +52,26 @@ func jsToGo(v js.Value, targetT reflect.Type) (reflect.Value, error) {
 		}
 
 		// Generic slice from JS array
-		if v.Length() > 0 {
-			length := v.Length()
-			slice := reflect.MakeSlice(targetT, length, length)
-			for i := 0; i < length; i++ {
-				elemVal, err := jsToGo(v.Index(i), targetT.Elem())
-				if err != nil {
-					return reflect.Value{}, fmt.Errorf("slice element %d: %w", i, err)
-				}
-				slice.Index(i).Set(elemVal)
-			}
-			return slice, nil
+		// Note: JavaScript arrays are objects with a numeric length property
+		if v.Type() != js.TypeObject {
+			return reflect.Value{}, fmt.Errorf("expected object/array for %s, got %s", targetT, v.Type())
 		}
+
+		lengthProp := v.Get("length")
+		if lengthProp.Type() != js.TypeNumber {
+			return reflect.Value{}, fmt.Errorf("expected array (object with length property) for %s", targetT)
+		}
+
+		length := lengthProp.Int()
+		slice := reflect.MakeSlice(targetT, length, length)
+		for i := 0; i < length; i++ {
+			elemVal, err := jsToGo(v.Index(i), targetT.Elem())
+			if err != nil {
+				return reflect.Value{}, fmt.Errorf("slice element %d: %w", i, err)
+			}
+			slice.Index(i).Set(elemVal)
+		}
+		return slice, nil
 
 	case reflect.Struct:
 		// Assume JS object or JSON string to struct via JSON

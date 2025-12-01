@@ -364,7 +364,7 @@ describe('collectVariants', () => {
     });
 
     const pipelineConfig: PipelineConfiguration = {
-        blocksize: 128 * 1024 * 1024
+        buffersize: 128 * 1024 * 1024
     };
 
     it('should collect variants from file with single chunk', async () => {

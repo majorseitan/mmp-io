@@ -7,16 +7,22 @@ import (
 	"github.com/mwm1/mmp-io/lib"
 )
 
-func hello(this js.Value, args []js.Value) interface{} {
+func test(this js.Value, args []js.Value) interface{} {
 	if len(args) > 0 {
 		name := args[0].String()
-		return fmt.Sprintf("Hello, %s from Go WASM!", name)
+		return fmt.Sprintf("Test, %s from Go WASM!", name)
 	}
-	return "Hello from Go WASM!"
+	return "Test	 from Go WASM!"
 }
 
 func main() {
 	fmt.Println("Hello from Go WebAssembly!")
-	registerCallbacks([]interface{}{hello, lib.CreateFileColumnsIndex, lib.BufferVariants})
+	registerCallbacks([]interface{}{
+		test,
+		lib.CreateFileColumnsIndex,
+		lib.BufferVariants,
+		lib.BufferSummaryPasses,
+		lib.SummaryBytesString,
+	})
 	select {}
 }

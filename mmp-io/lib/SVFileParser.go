@@ -283,3 +283,12 @@ func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
 
 	return result, nil
 }
+
+func FileHeader(tag string) []string {
+	return []string{
+		fmt.Sprintf("%s_pval", tag),
+		fmt.Sprintf("%s_beta", tag),
+		fmt.Sprintf("%s_sebta", tag),
+		fmt.Sprintf("%s_af", tag),
+	}
+}

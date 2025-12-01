@@ -23,6 +23,7 @@ func main() {
 		lib.BufferVariants,
 		lib.BufferSummaryPasses,
 		lib.SummaryBytesString,
+		lib.FileHeader,
 	})
 	select {}
 }

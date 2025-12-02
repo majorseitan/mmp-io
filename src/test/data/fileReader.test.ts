@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isCompressed, readFileInBlocks, firstNL, findLastNewline } from './fileReader';
+import { isCompressed, readFileInBlocks, firstNL, findLastNewline } from '../../data/fileReader';
 
 async function sha256(data: Uint8Array): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data as BufferSource);

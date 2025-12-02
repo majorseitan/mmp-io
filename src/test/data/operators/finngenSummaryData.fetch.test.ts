@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { finngenSummaryInfo } from './finngenSummaryInfo';
-import { finngenSummaryData } from './finngenSummaryData';
-import type { FinngenSummaryInfoResponse, FinngenDataRequest, FinngenSummaryDataResponse } from '../model';
-import { setupTestFetch } from '../../test/nodeFetchFallback';
-import { SummaryFile } from '../../model/summaryfile';
-import { validFinngenRequest, createLoggingCallbacks } from '../../test/finngenTestFixtures';
+import { finngenSummaryInfo } from '../../../data/operators/finngenSummaryInfo';
+import { finngenSummaryData } from '../../../data/operators/finngenSummaryData';
+import type { FinngenSummaryInfoResponse, FinngenDataRequest, FinngenSummaryDataResponse } from '../../../data/model';
+import { setupTestFetch } from '../../nodeFetchFallback';
+import { SummaryFile } from '../../../model/summaryfile';
+import { validFinngenRequest, createLoggingCallbacks } from '../../finngenTestFixtures';
 
 describe('finngenSummaryData (real fetch)', () => {
   // Slow tests are skipped by default. Set `RUN_SLOW_TESTS=1` to enable.

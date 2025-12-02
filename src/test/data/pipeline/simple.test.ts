@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../wasm';
-import { simplePpipeline } from './simple';
-import type { LocalFileConfiguration, PipelineConfiguration, StepCallBack } from '../model';
+import { wasmReady } from '../../../data/wasm';
+import { simplePpipeline } from '../../../data/pipeline/simple';
+import type { LocalFileConfiguration, PipelineConfiguration, StepCallBack } from '../../../data/model';
 
 describe('simplePpipeline', () => {
     beforeAll(async () => {

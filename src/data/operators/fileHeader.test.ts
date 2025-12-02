@@ -15,7 +15,7 @@ describe('FileHeader WASM binding', () => {
         expect(res.length).toBe(4);
         expect(res[0]).toBe('file1_pval');
         expect(res[1]).toBe('file1_beta');
-        expect(res[2]).toBe('file1_sebta');
+        expect(res[2]).toBe('file1_sebeta');
         expect(res[3]).toBe('file1_af');
     });
 });

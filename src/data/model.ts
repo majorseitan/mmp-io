@@ -51,16 +51,15 @@ export type FinngenFileConfiguration = FileConfiguration & {
 export type FinngenSummaryInfo = {
   filesize : number;
   linecount : number;
-  variants : string[];
+  variants : string[][];
   blockcount : number;
+  headers : string[];
 };
-
-export type FinngenSummaryData = Uint32Array[][];
 
 export type FinngenResponse<T> = T | { error : string }
 
 export type FinngenSummaryInfoResponse = FinngenResponse<FinngenSummaryInfo>;
-export type FinngenSummaryDataResponse = FinngenResponse<FinngenSummaryData>;
+export type FinngenSummaryDataResponse = FinngenResponse<SummaryPass>;
 
 export type FinngenDataRequest = {
     file_id: string;

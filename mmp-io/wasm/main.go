@@ -7,6 +7,10 @@ import (
 	"github.com/mwm1/mmp-io/lib"
 )
 
+var BuildId string
+var BuildTime string
+var MMPioVersion string
+
 func test(this js.Value, args []js.Value) interface{} {
 	if len(args) > 0 {
 		name := args[0].String()
@@ -16,7 +20,7 @@ func test(this js.Value, args []js.Value) interface{} {
 }
 
 func main() {
-	fmt.Println("Hello from Go WebAssembly!")
+	fmt.Printf("MMP-io version: %s, Build ID: %s, Build Time: %s\n", MMPioVersion, BuildId, BuildTime)
 	registerCallbacks([]interface{}{
 		test,
 		lib.CreateFileColumnsIndex,

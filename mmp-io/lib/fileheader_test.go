@@ -21,7 +21,7 @@ func TestFileHeader(t *testing.T) {
 	expected := []string{
 		"file1_pval",
 		"file1_beta",
-		"file1_sebta",
+		"file1_sebeta",
 		"file1_af",
 	}
 

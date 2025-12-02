@@ -1,13 +1,18 @@
 .PHONY: build clean install-wasm-exec copy test help
 V=1
-# Default target
 all: build
+# Get version from git
+VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_ID=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 
-# Build the WebAssembly binary
+# Build flags
+LDFLAGS=-X main.MMPioVersion=$(VERSION) -X main.BuildID=$(BUILD_ID) -X main.BuildTime=$(BUILD_TIME)
+
+
 build: lib/mmp-io.pb.go
-	GOOS=js GOARCH=wasm go build -o main.wasm ./wasm
+	GOOS=js GOARCH=wasm go build -ldflags "$(LDFLAGS)" -o main.wasm ./wasm
 
-# Run tests
 test:
 	@echo "Running Go tests..."
 	@go test -v ./lib/...
@@ -21,13 +26,11 @@ copy: build
 lib/mmp-io.pb.go: proto/*.proto buf.yaml buf.gen.yaml
 	buf generate
 
-# Clean build artifacts
 clean:
 	@rm -f main.wasm
 
 install: build copy
 
-# Show help
 help:
 	@echo "Available targets:"
 	@echo "  make build  - Build the WebAssembly binary"

@@ -8,7 +8,7 @@ const bufferSummaryPass = (buffer: Uint8Array<ArrayBufferLike>, metadata: BlockM
 }
 
 
-const fileHeader : (tag: string) => string [] = (window as any).FileHeader;
+const fileHeader : (tag: string) => string [] = (tag : string) => (window as any).FileHeader(tag);
 
 export const collectRows = async (
     localFile : LocalFileConfiguration,

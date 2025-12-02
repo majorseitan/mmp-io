@@ -23,4 +23,63 @@ const initWasm = async () => {
     return wasmReadyPromise;
 };
 
+
+export interface WasmEnvInfo {
+  hasSharedArrayBuffer: boolean;
+  hasProperIsolation: boolean; // implies COOP/COEP set correctly
+  hasWasmThreads: boolean;
+}
+
+/**
+ * Detects whether the environment supports:
+ * - SharedArrayBuffer
+ * - Correct COOP/COEP isolation (crossOriginIsolated)
+ * - WebAssembly threads (via Shared WebAssembly.Memory)
+ */
+export function detectWasmEnv(): WasmEnvInfo {
+  const hasSharedArrayBuffer = typeof SharedArrayBuffer === "function";
+
+  // COOP/COEP cannot be read directly, but browsers expose:
+  //   window.crossOriginIsolated === true
+  // when headers are set properly.
+  const hasProperIsolation = hasSharedArrayBuffer && (window as any).crossOriginIsolated === true;
+
+  let hasWasmThreads = false;
+
+  try {
+    // WebAssembly threads require:
+    //  - SharedArrayBuffer
+    //  - Atomics
+    //  - WebAssembly.Memory({shared: true})
+    if (hasProperIsolation && typeof Atomics === "object") {
+      const mem = new WebAssembly.Memory({
+        initial: 1,
+        maximum: 10,
+        shared: true
+      });
+
+      // If this succeeded, threads are available
+      hasWasmThreads = mem instanceof WebAssembly.Memory;
+    }
+  } catch (err) {
+    hasWasmThreads = false;
+  }
+
+  return {
+    hasSharedArrayBuffer,
+    hasProperIsolation,
+    hasWasmThreads
+  };
+}
+
+const env = detectWasmEnv();
+
+console.log("SharedArrayBuffer:", env.hasSharedArrayBuffer);
+console.log("COOP/COEP OK:", env.hasProperIsolation);
+console.log("WASM Threads:", env.hasWasmThreads);
+
+if (!env.hasProperIsolation) {
+  console.warn("⚠️ COOP/COEP headers missing. WASM threads will NOT work.");
+}
+
 export const wasmReady = initWasm();

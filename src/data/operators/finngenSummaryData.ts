@@ -1,10 +1,45 @@
 import type { FinngenDataRequest, FinngenSummaryDataResponse, StepCallBack } from "../model";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "https://mmp.finngen.fi";
+
 export const finngenSummaryData = async (
-    finngenFiles : FinngenDataRequest,
-    endpoint: string,
-    setCallBack: StepCallBack
+    finngenRequest: FinngenDataRequest,
+    setCallBack: StepCallBack<void, string, void>
 ): Promise<FinngenSummaryDataResponse> => {
-    return { error : "Not implemented"};
+    setCallBack.processing();
+
+    try {
+        const jobId = finngenRequest.file_id
+
+        // Determine which blocks to fetch
+        const blockIndices = finngenRequest.block_indices ?? [];
+        if (blockIndices.length === 0) {
+            throw new Error('No block_indices specified in request');
+        }
+
+        // Fetch all blocks in parallel
+        const blockPromises = blockIndices.map(async (blockIndex) => {
+            const url = `${API_BASE}/api/jobs/${jobId}/block/${blockIndex}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Fetch block ${blockIndex} failed: ${response.status} ${response.statusText} - ${text}`);
+            }
+
+            // Expect binary data (protobuf or similar) - parse as Uint8Array
+            const arrayBuffer = await response.arrayBuffer();
+            return new Uint8Array(arrayBuffer);
+        });
+
+        const blocks = await Promise.all(blockPromises);
+        
+        setCallBack.success();
+        return blocks;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setCallBack.error(message);
+        return { error: message };
+    }
 };
 

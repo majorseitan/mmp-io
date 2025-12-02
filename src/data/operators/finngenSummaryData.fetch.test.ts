@@ -1,31 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { finngenSummaryInfo } from './finngenSummaryInfo';
 import { finngenSummaryData } from './finngenSummaryData';
-import type { FinngenFileConfiguration, FinngenSummaryInfoResponse, FinngenDataRequest, FinngenSummaryDataResponse } from '../model';
-import { SummaryFile } from '../model/summaryfile';
+import type { FinngenSummaryInfoResponse, FinngenDataRequest, FinngenSummaryDataResponse } from '../model';
 import { setupTestFetch } from '../../test/nodeFetchFallback';
-
-// Provided request payload with valid phenocode
-const requestPayload = {
-  inputs: [
-    {
-      collection: 'labvalues',
-      phenocode: '21491979',
-      phenostring: 'Prolactin monomeric [Units/volume] in Serum or Plasma [mu/l], sample-wise median, quantitative',
-      tag: '21491979_labvalues',
-      chromosomeColumn: '#chrom',
-      positionColumn: 'pos',
-      referenceColumn: 'ref',
-      alternativeColumn: 'alt',
-      pValueColumn: 'pval',
-      betaColumn: 'beta',
-      sebetaColumn: 'sebeta',
-      afColumn: 'af_alt',
-      pval_threshold: 0.00001,
-    },
-  ],
-  heterogeneity_tests: [],
-};
+import { SummaryFile } from '../../model/summaryfile';
+import { validFinngenRequest, createLoggingCallbacks } from '../../test/finngenTestFixtures';
 
 describe('finngenSummaryData (real fetch)', () => {
   // Slow tests are skipped by default. Set `RUN_SLOW_TESTS=1` to enable.
@@ -35,25 +14,14 @@ describe('finngenSummaryData (real fetch)', () => {
   testFn(
     'creates job with finngenSummaryInfo then fetches block with finngenSummaryData and unmarshals protobuf',
     async () => {
-      const finngenFiles = requestPayload.inputs as unknown as FinngenFileConfiguration[];
-
-      // Setup fetch with logging and node-http fallback
       const restoreFetch = setupTestFetch('[finngen-data-fetch]');
 
       // Step 1: Create job and get summary info
       console.log('\n=== Step 1: Creating job with finngenSummaryInfo ===');
-      let infoProcessed = false;
-      let infoSucceeded = false;
-      let infoErrorMsg: string | null = null;
+      const { callbacks: infoCallbacks } = createLoggingCallbacks('info');
 
-      const infoCallbacks = {
-        processing: () => { infoProcessed = true; console.log('[info-callback] processing'); },
-        error: (e: string) => { infoErrorMsg = e; console.log('[info-callback] error:', e); },
-        success: () => { infoSucceeded = true; console.log('[info-callback] success'); },
-      };
-
-      const infoResult: FinngenSummaryInfoResponse = await finngenSummaryInfo(finngenFiles, infoCallbacks as any);
-
+      const infoResult: FinngenSummaryInfoResponse = await finngenSummaryInfo(validFinngenRequest, infoCallbacks as any);
+      
       console.log('[info-result]', JSON.stringify(infoResult, null, 2));
 
       // Verify we got summary info successfully
@@ -61,7 +29,7 @@ describe('finngenSummaryData (real fetch)', () => {
       if ('error' in infoResult) {
         throw new Error(`finngenSummaryInfo failed: ${infoResult.error}`);
       }
-
+      
       // Verify the structure
       expect(typeof infoResult.filesize).toBe('number');
       expect(typeof infoResult.linecount).toBe('number');
@@ -75,19 +43,11 @@ describe('finngenSummaryData (real fetch)', () => {
       console.log('\n=== Step 2: Fetching block 0 with finngenSummaryData ===');
       
       const dataRequest: FinngenDataRequest = {
-        file_id: finngenFiles[0].tag, // Use tag as file_id
-        block_indices: [0], // Fetch first block
+        file_id: infoResult.file_id,
+        block_indices: [0],
       };
 
-      let dataProcessed = false;
-      let dataSucceeded = false;
-      let dataErrorMsg: string | null = null;
-
-      const dataCallbacks = {
-        processing: () => { dataProcessed = true; console.log('[data-callback] processing'); },
-        error: (e: string) => { dataErrorMsg = e; console.log('[data-callback] error:', e); },
-        success: () => { dataSucceeded = true; console.log('[data-callback] success'); },
-      };
+      const { callbacks: dataCallbacks, getState } = createLoggingCallbacks('data');
 
       const dataResult: FinngenSummaryDataResponse = await finngenSummaryData(dataRequest, dataCallbacks as any);
 
@@ -96,6 +56,7 @@ describe('finngenSummaryData (real fetch)', () => {
 
       console.log('[data-result] type:', Array.isArray(dataResult) ? 'SummaryPass' : 'error');
 
+      console.log(dataResult);
       // Verify we got data successfully
       expect('error' in dataResult).toBe(false);
       if ('error' in dataResult) {
@@ -116,42 +77,70 @@ describe('finngenSummaryData (real fetch)', () => {
       const summaryFile = SummaryFile.decode(blockData);
 
       console.log('[protobuf] decoded SummaryFile');
-      console.log('[protobuf] tag:', summaryFile.tag);
-      console.log('[protobuf] rows count:', summaryFile.rows?.length ?? 0);
+      console.log('[protobuf] header:', summaryFile.header);
+      console.log('[protobuf] rows array length:', summaryFile.rows?.length ?? 0);
 
       // Verify the protobuf structure
-      expect(summaryFile.tag).toBe(finngenFiles[0].tag);
+      expect(summaryFile.header).toBeDefined();
+      expect(Array.isArray(summaryFile.header)).toBe(true);
+      expect(summaryFile.header).toEqual([
+        'labvalues_21491979_pval',
+        'labvalues_21491979_beta',
+        'labvalues_21491979_sebeta',
+        'labvalues_21491979_af',
+        'labvalues_21491979_pip',
+        'labvalues_21491979_cs'
+      ]);
       expect(summaryFile.rows).toBeDefined();
       expect(Array.isArray(summaryFile.rows)).toBe(true);
-      expect(summaryFile.rows!.length).toBeGreaterThan(0);
+      expect(summaryFile.rows!.length).toBe(1);
 
-      // Check first row has expected structure
-      const firstRow = summaryFile.rows![0];
-      expect(firstRow.variant).toBeDefined();
-      expect(firstRow.statistics).toBeDefined();
-      expect(firstRow.statistics!.length).toBeGreaterThan(0);
+      // Check first SummaryRows block has data
+      const firstBlock = summaryFile.rows![0];
+      expect(firstBlock.rows).toBeDefined();
+      expect(firstBlock.rows instanceof Map).toBe(true);
+      expect(firstBlock.rows.size).toBe(10);
 
-      console.log('[protobuf] first variant:', firstRow.variant?.chromosome, firstRow.variant?.position, firstRow.variant?.reference, firstRow.variant?.alternative);
-      console.log('[protobuf] statistics count:', firstRow.statistics!.length);
+      console.log('[protobuf] first block row count:', firstBlock.rows.size);
 
-      // Verify statistics structure
-      const firstStat = firstRow.statistics![0];
-      expect(firstStat.pvalue).toBeDefined();
-      expect(firstStat.beta).toBeDefined();
-      expect(firstStat.sebeta).toBeDefined();
-      expect(firstStat.af).toBeDefined();
+      // Get first entry from the map
+      const firstEntry = Array.from(firstBlock.rows.entries())[0];
+      const [variantKey, summaryValues] = firstEntry;
+      
+      console.log('[protobuf] first variant key:', variantKey);
+      console.log('[protobuf] first variant values:', summaryValues.values);
 
-      console.log('[protobuf] first statistic - pvalue:', firstStat.pvalue, 'beta:', firstStat.beta, 'sebeta:', firstStat.sebeta, 'af:', firstStat.af);
+      console.log(`\n[verification] Total variants in block: ${firstBlock.rows.size}`);
+      console.log('[verification] First variant key:', variantKey);
+      console.log('[verification] Values:', summaryValues.values.join(', '));
 
-      // Verify variant count matches what we expect from info
-      console.log(`\n[verification] Total rows in block: ${summaryFile.rows!.length}`);
-      console.log('[verification] First row variant:', 
-        `chr${firstRow.variant?.chromosome}:${firstRow.variant?.position}`,
-        `${firstRow.variant?.reference}->${firstRow.variant?.alternative}`);
-      console.log('[verification] First row pvalue:', firstStat.pvalue);
+      // Verify all variants from infoResult are present in the block
+      console.log('\n[verification] Checking all variants from infoResult are in block...');
+      const blockVariantKeys = new Set(firstBlock.rows.keys());
+      
+      // infoResult.variants[0] contains the variants for the first file
+      const expectedVariants = infoResult.variants[0];
+      expect(Array.isArray(expectedVariants)).toBe(true);
+      console.log(`[verification] Expected variants count: ${expectedVariants.length}`);
+      console.log(`[verification] Block variants count: ${blockVariantKeys.size}`);
+      
+      // Check that each expected variant exists in the block
+      let foundCount = 0;
+      for (const variant of expectedVariants) {
+        // variant is already a string in the format "chrom\tpos\tref\talt"
+        if (blockVariantKeys.has(variant)) {
+          foundCount++;
+        } else {
+          console.warn(`[verification] Variant not found in block: ${variant}`);
+        }
+      }
+      
+      console.log(`[verification] Found ${foundCount}/${expectedVariants.length} variants in block`);
+      expect(foundCount).toBe(expectedVariants.length);
+      expect(foundCount).toBe(10);
 
       // All checks passed
-      expect(dataSucceeded).toBe(true);
+      expect(getState().succeeded).toBe(true);
     },
     300000
   ); // 5 minute timeout for slow network test

@@ -2,7 +2,7 @@ import { readFileInBlocks } from "../fileReader";
 import { toGoFileColumnsDefinition, type BlockMetadata, type GoFileColumnsDefinition, type LocalFileConfiguration , type PipelineConfiguration, type StepCallBack, type VariantPartitions, type SummmryPassAcumulator, type DelimitedText } from "../model";
 import { collectVariants } from "../operators/collectVariants";
 import { collectRows } from "../operators/collectRows";
-
+import { summaryStatistics } from "../operators/summaryStatistics";
 export const simplePpipeline = async (
     localFile: LocalFileConfiguration,
     pipelineConfig: PipelineConfiguration,
@@ -22,8 +22,8 @@ export const simplePpipeline = async (
 
     // 3) call summaryStatistics with headers wrapped as array-of-headers (one file)
     const headersArr = [headers];
-    const { summaryStatistics } = await import('../operators/summaryStatistics');
+    
     const result = await summaryStatistics(localFile.delimiter, headersArr, summaryPasses, setCallBack);
-
+    setCallBack.success();
     return result;
 };

@@ -1,20 +1,22 @@
-import type { FinngenFileConfiguration, FinngenSummaryInfoResponse, FinngenSummaryInfo, StepCallBack } from "../model";
+import type { MMPRequest, FinngenSummaryInfoResponse, FinngenSummaryInfo, StepCallBack } from "../model";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://mmp.finngen.fi";
 
 
 
 export const finngenSummaryInfo = async (
-    finngenFiles: FinngenFileConfiguration[],
+    request: MMPRequest,
     setCallBack: StepCallBack<void,string,void>
 ): Promise<FinngenSummaryInfoResponse> => {
     setCallBack.processing();
     // POST /api/jobs (or provided endpoint) to create a job and poll until completion
-    const postCreateJob = async (files: FinngenFileConfiguration[]): Promise<string> => {
+    const postCreateJob = async (req: MMPRequest): Promise<{ url: string; file_id: string }> => {
+        console.log("Creating job with request:", req);
+        console.log("Creating blocksize:", req.block_size);
         const response = await fetch(`${API_BASE}/api/jobs`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(files),
+            body: JSON.stringify(req),
         });
 
         const text = await response.text();
@@ -26,21 +28,21 @@ export const finngenSummaryInfo = async (
         if (!data.job_id) {
             throw new Error(`create-job response missing job_id: ${text}`);
         }
-        return `${API_BASE}/api/jobs/${data.job_id}/summary`;
+        return { url: `${API_BASE}/api/jobs/${data.job_id}/summary`, file_id: data.job_id };
     };
 
-    const waitForCompletion = (url: string): Promise<FinngenSummaryInfo> => {
+    const waitForCompletion = (params: { url: string; file_id: string }): Promise<FinngenSummaryInfo> => {
         // Poll the job URL until it completes or fails
         return new Promise((resolve, reject) => {
             const intervalId = setInterval(() => {
-                fetch(url)
+                fetch(params.url)
                     .then(async (r) => {
                         if (r.status === 200) {
                             clearInterval(intervalId);
                             try {
                                 const json = await r.json();
                                 // Direct cast to FinngenSummaryInfo as requested
-                                const finngenInfo = json as FinngenSummaryInfo;
+                                const finngenInfo = { ...json, file_id: params.file_id } as FinngenSummaryInfo;
                                 setCallBack.success();
                                 resolve(finngenInfo);
                             } catch (err) {
@@ -61,12 +63,12 @@ export const finngenSummaryInfo = async (
                         setCallBack.error(message);
                         reject(err);
                     });
-            }, 1000);
+            }, 10000);
         });
     };
 
     try {
-        const result = await postCreateJob(finngenFiles).then(waitForCompletion);
+        const result = await postCreateJob(request).then(waitForCompletion);
         return result;
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

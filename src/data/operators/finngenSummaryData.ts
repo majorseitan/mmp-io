@@ -29,6 +29,7 @@ export const finngenSummaryData = async (
 
             // Expect binary data (protobuf or similar) - parse as Uint8Array
             const arrayBuffer = await response.arrayBuffer();
+            console.log(`Fetched block ${blockIndex}, size: ${arrayBuffer.byteLength} bytes`);
             return new Uint8Array(arrayBuffer);
         });
 

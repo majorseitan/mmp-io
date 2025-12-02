@@ -1,29 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { finngenSummaryInfo } from './finngenSummaryInfo';
-import type { FinngenFileConfiguration, FinngenSummaryInfoResponse } from '../model';
+import type { FinngenSummaryInfoResponse, MMPRequest, MMPSummaryStatistic } from '../model';
 import { setupTestFetch } from '../../test/nodeFetchFallback';
-
-// Provided request payload with valid phenocode
-const requestPayload = {
-  inputs: [
-    {
-      collection: 'labvalues',
-      phenocode: '21491979',
-      phenostring: 'Prolactin monomeric [Units/volume] in Serum or Plasma [mu/l], sample-wise median, quantitative',
-      tag: '21491979_labvalues',
-      chromosomeColumn: '#chrom',
-      positionColumn: 'pos',
-      referenceColumn: 'ref',
-      alternativeColumn: 'alt',
-      pValueColumn: 'pval',
-      betaColumn: 'beta',
-      sebetaColumn: 'sebeta',
-      afColumn: 'af_alt',
-      pval_threshold: 0.00001,
-    },
-  ],
-  heterogeneity_tests: [],
-};
+import { validFinngenRequest, expectedHeaders, createSimpleCallbacks } from '../../test/finngenTestFixtures';
 
 describe('finngenSummaryInfo (real fetch)', () => {
   // Slow tests are skipped by default. Set `RUN_SLOW_TESTS=1` to enable.
@@ -33,41 +12,27 @@ describe('finngenSummaryInfo (real fetch)', () => {
   testFn(
     'performs a real fetch and returns FinngenSummaryInfo or error string',
     async () => {
-    const finngenFiles = requestPayload.inputs as unknown as FinngenFileConfiguration[];
-
-    // Setup fetch with logging and node-http fallback
     const restoreFetch = setupTestFetch('[finngen-fetch]');
+    const { callbacks, getState } = createSimpleCallbacks();
 
-    // Simple callbacks to observe progress
-    let processed = false;
-    let succeeded = false;
-    let errorMsg: string | null = null;
-
-    const callbacks = {
-      processing: () => { processed = true; },
-      error: (e: string) => { errorMsg = e; },
-      success: () => { succeeded = true; },
-    };
-
-    const result: FinngenSummaryInfoResponse = await finngenSummaryInfo(finngenFiles, callbacks as any);
+    const result: FinngenSummaryInfoResponse = await finngenSummaryInfo(validFinngenRequest, callbacks as any);
 
     // Restore original fetch implementation
     restoreFetch();
 
-    console.log('[finngen-fetch] Final result:', JSON.stringify(result, null, 2));
-
     // Either the API returns an error object or a FinngenSummaryInfo
     if ('error' in result) {
-      // Ensure error is a string and that our error callback was invoked
       expect(typeof result.error).toBe('string');
-      expect(errorMsg === null || typeof errorMsg === 'string').toBe(true);
+      expect(getState().errorMsg === null || typeof getState().errorMsg === 'string').toBe(true);
     } else {
-      // Validate the minimal expected shape of FinngenSummaryInfo
       expect(typeof result.filesize).toBe('number');
       expect(typeof result.linecount).toBe('number');
       expect(typeof result.blockcount).toBe('number');
+      expect(result.blockcount).toBe(11);
+      expect(result.headers).toEqual(expectedHeaders);
+      expect(result.variants.length).toBe(11);
       expect(Array.isArray(result.variants)).toBe(true);
-      // mark success callback happened
+      const { succeeded, processed } = getState();
       expect(succeeded || processed).toBeTruthy();
     }
   }, 180000); // 3 minute timeout for slow network test
@@ -75,36 +40,31 @@ describe('finngenSummaryInfo (real fetch)', () => {
   testFn(
     'returns error for invalid phenocode',
     async () => {
-      // Use an invalid phenocode that doesn't exist
-      const badFiles: FinngenFileConfiguration[] = [
-        {
-          chromosomeColumn: '#chrom',
-          positionColumn: 'pos',
-          referenceColumn: 'ref',
-          alternativeColumn: 'alt',
-          pValueColumn: 'pval',
-          betaColumn: 'beta',
-          sebetaColumn: 'sebeta',
-          afColumn: 'af_alt',
-          tag: 'invalid_test',
-          phenostring: 'Invalid phenotype for testing',
-          pval_threshold: 0.00001,
-          collection: 'invalid_collection',
-          phenocode: 'DOES_NOT_EXIST_999999',
-        } as unknown as FinngenFileConfiguration,
-      ];
-
-      // Setup fetch with logging and node-http fallback
-      const restoreFetch = setupTestFetch('[invalid-phenocode]');
-
-      let errorMsg: string | null = null;
-      const callbacks = {
-        processing: () => {},
-        error: (e: string) => { errorMsg = e; },
-        success: () => {},
+      const badRequest: MMPRequest = {
+        inputs: [
+          {
+            chromosomeColumn: '#chrom',
+            positionColumn: 'pos',
+            referenceColumn: 'ref',
+            alternativeColumn: 'alt',
+            pValueColumn: 'pval',
+            betaColumn: 'beta',
+            sebetaColumn: 'sebeta',
+            afColumn: 'af_alt',
+            tag: 'invalid_test',
+            phenostring: 'Invalid phenotype for testing',
+            pval_threshold: 0.00001,
+            collection: 'invalid_collection',
+            phenocode: 'DOES_NOT_EXIST_999999',
+          } as MMPSummaryStatistic,
+        ],
+        variants: [],
       };
 
-      const result: FinngenSummaryInfoResponse = await finngenSummaryInfo(badFiles, callbacks as any);
+      const restoreFetch = setupTestFetch('[invalid-phenocode]');
+      const { callbacks } = createSimpleCallbacks();
+
+      const result: FinngenSummaryInfoResponse = await finngenSummaryInfo(badRequest, callbacks as any);
 
       // Restore original fetch
       restoreFetch();
@@ -124,18 +84,11 @@ describe('finngenSummaryInfo (real fetch)', () => {
   testFn(
     'returns error for empty files array',
     async () => {
-      const emptyFiles: FinngenFileConfiguration[] = [];
-
-      // Setup fetch with logging and node-http fallback
+      const emptyRequest: MMPRequest = { inputs: [], variants: [] };
       const restoreFetch = setupTestFetch('[empty-files]');
+      const { callbacks } = createSimpleCallbacks();
 
-      const callbacks = {
-        processing: () => {},
-        error: (e: string) => {},
-        success: () => {},
-      };
-
-      const result: FinngenSummaryInfoResponse = await finngenSummaryInfo(emptyFiles, callbacks as any);
+      const result: FinngenSummaryInfoResponse = await finngenSummaryInfo(emptyRequest, callbacks as any);
 
       // Restore original fetch
       restoreFetch();

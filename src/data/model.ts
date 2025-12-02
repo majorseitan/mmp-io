@@ -48,7 +48,10 @@ export type FinngenFileConfiguration = FileConfiguration & {
     phenocode: string
 }
 
+
+
 export type FinngenSummaryInfo = {
+  file_id: string;
   filesize : number;
   linecount : number;
   variants : string[][];
@@ -68,6 +71,7 @@ export type FinngenDataRequest = {
 
 export type MMPBase = {
   tag: string
+  pval_threshold: number
 } & FileColumnsDefinition;
 
 export type MMPSummaryStatistic =  MMPBase & {
@@ -85,7 +89,7 @@ export type MMPFileArtifact = MMPSummaryStatistic | MMPFileUpload;
 export interface MMPRequest {
   inputs : MMPFileArtifact[]
   variants: string[]
-  blocksize?: number
+  block_size?: number
 }
 
 export type DelimitedText = { header : string , data : string };

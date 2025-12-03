@@ -114,7 +114,8 @@ func (x *SummaryValues) GetValues() []string {
 // SummaryRows contains a map of variant (VariantKey) to values
 type SummaryRows struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Rows          map[string]*SummaryValues `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // key is VariantKey: "chrom\tpos\tref\talt"
+	Header        []string                  `protobuf:"bytes,1,rep,name=header,proto3" json:"header,omitempty"`
+	Rows          map[string]*SummaryValues `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // key is VariantKey: "chrom\tpos\tref\talt"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -149,6 +150,13 @@ func (*SummaryRows) Descriptor() ([]byte, []int) {
 	return file_summaryfile_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *SummaryRows) GetHeader() []string {
+	if x != nil {
+		return x.Header
+	}
+	return nil
+}
+
 func (x *SummaryRows) GetRows() map[string]*SummaryValues {
 	if x != nil {
 		return x.Rows
@@ -159,8 +167,7 @@ func (x *SummaryRows) GetRows() map[string]*SummaryValues {
 // SummaryFile represents the complete summary file structure
 type SummaryFile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Header        []string               `protobuf:"bytes,1,rep,name=header,proto3" json:"header,omitempty"`
-	Rows          []*SummaryRows         `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
+	Rows          []*SummaryRows         `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -195,13 +202,6 @@ func (*SummaryFile) Descriptor() ([]byte, []int) {
 	return file_summaryfile_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *SummaryFile) GetHeader() []string {
-	if x != nil {
-		return x.Header
-	}
-	return nil
-}
-
 func (x *SummaryFile) GetRows() []*SummaryRows {
 	if x != nil {
 		return x.Rows
@@ -217,15 +217,15 @@ const file_summaryfile_proto_rawDesc = "" +
 	"\rSummaryHeader\x12\x18\n" +
 	"\acolumns\x18\x01 \x03(\tR\acolumns\"'\n" +
 	"\rSummaryValues\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x9a\x01\n" +
-	"\vSummaryRows\x126\n" +
-	"\x04rows\x18\x01 \x03(\v2\".summaryfile.SummaryRows.RowsEntryR\x04rows\x1aS\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xb2\x01\n" +
+	"\vSummaryRows\x12\x16\n" +
+	"\x06header\x18\x01 \x03(\tR\x06header\x126\n" +
+	"\x04rows\x18\x02 \x03(\v2\".summaryfile.SummaryRows.RowsEntryR\x04rows\x1aS\n" +
 	"\tRowsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x120\n" +
-	"\x05value\x18\x02 \x01(\v2\x1a.summaryfile.SummaryValuesR\x05value:\x028\x01\"S\n" +
-	"\vSummaryFile\x12\x16\n" +
-	"\x06header\x18\x01 \x03(\tR\x06header\x12,\n" +
-	"\x04rows\x18\x02 \x03(\v2\x18.summaryfile.SummaryRowsR\x04rowsB,Z*github.com/majorseitan/MMP_2024/mmp-io;libb\x06proto3"
+	"\x05value\x18\x02 \x01(\v2\x1a.summaryfile.SummaryValuesR\x05value:\x028\x01\";\n" +
+	"\vSummaryFile\x12,\n" +
+	"\x04rows\x18\x01 \x03(\v2\x18.summaryfile.SummaryRowsR\x04rowsB,Z*github.com/majorseitan/MMP_2024/mmp-io;libb\x06proto3"
 
 var (
 	file_summaryfile_proto_rawDescOnce sync.Once

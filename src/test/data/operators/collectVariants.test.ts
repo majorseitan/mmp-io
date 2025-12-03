@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../wasm';
-import { createFileColumnsIndex, bufferVariants, collectVariants } from './collectVariants';
-import type { LocalFileConfiguration, BlockMetadata, StepCallBack, PipelineConfiguration } from '../model';
+import { wasmReady } from '../../../data/wasm';
+import { createFileColumnsIndex, bufferVariants, collectVariants } from '../../../data/operators/collectVariants';
+import type { LocalFileConfiguration, BlockMetadata, StepCallBack, PipelineConfiguration } from '../../../data/model';
 
 describe('createFileColumnsIndex', () => {
     beforeAll(async () => {

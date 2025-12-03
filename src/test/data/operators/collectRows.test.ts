@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../wasm';
-import type { BlockMetadata, VariantPartitions, SummaryPass } from '../model';
+import { wasmReady } from '../../../data/wasm';
+import type { BlockMetadata, VariantPartitions, SummaryPass } from '../../../data/model';
 
 // Import the function through the module to test
 const bufferSummaryPass = (buffer: Uint8Array, metadata: BlockMetadata, partitions: VariantPartitions): SummaryPass => {

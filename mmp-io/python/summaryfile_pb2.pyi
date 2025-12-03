@@ -27,14 +27,14 @@ class SummaryRows(_message.Message):
         key: str
         value: SummaryValues
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[SummaryValues, _Mapping]] = ...) -> None: ...
-    ROWS_FIELD_NUMBER: _ClassVar[int]
-    rows: _containers.MessageMap[str, SummaryValues]
-    def __init__(self, rows: _Optional[_Mapping[str, SummaryValues]] = ...) -> None: ...
-
-class SummaryFile(_message.Message):
-    __slots__ = ()
     HEADER_FIELD_NUMBER: _ClassVar[int]
     ROWS_FIELD_NUMBER: _ClassVar[int]
     header: _containers.RepeatedScalarFieldContainer[str]
+    rows: _containers.MessageMap[str, SummaryValues]
+    def __init__(self, header: _Optional[_Iterable[str]] = ..., rows: _Optional[_Mapping[str, SummaryValues]] = ...) -> None: ...
+
+class SummaryFile(_message.Message):
+    __slots__ = ()
+    ROWS_FIELD_NUMBER: _ClassVar[int]
     rows: _containers.RepeatedCompositeFieldContainer[SummaryRows]
-    def __init__(self, header: _Optional[_Iterable[str]] = ..., rows: _Optional[_Iterable[_Union[SummaryRows, _Mapping]]] = ...) -> None: ...
+    def __init__(self, rows: _Optional[_Iterable[_Union[SummaryRows, _Mapping]]] = ...) -> None: ...

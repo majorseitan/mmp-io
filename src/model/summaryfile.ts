@@ -21,6 +21,7 @@ export interface SummaryValues {
 
 /** SummaryRows contains a map of variant (VariantKey) to values */
 export interface SummaryRows {
+  header: string[];
   /** key is VariantKey: "chrom\tpos\tref\talt" */
   rows: Map<string, SummaryValues>;
 }
@@ -32,7 +33,6 @@ export interface SummaryRows_RowsEntry {
 
 /** SummaryFile represents the complete summary file structure */
 export interface SummaryFile {
-  header: string[];
   rows: SummaryRows[];
 }
 
@@ -139,13 +139,16 @@ export const SummaryValues: MessageFns<SummaryValues> = {
 };
 
 function createBaseSummaryRows(): SummaryRows {
-  return { rows: new Map() };
+  return { header: [], rows: new Map() };
 }
 
 export const SummaryRows: MessageFns<SummaryRows> = {
   encode(message: SummaryRows, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.header) {
+      writer.uint32(10).string(v!);
+    }
     message.rows.forEach((value, key) => {
-      SummaryRows_RowsEntry.encode({ key: key as any, value }, writer.uint32(10).fork()).join();
+      SummaryRows_RowsEntry.encode({ key: key as any, value }, writer.uint32(18).fork()).join();
     });
     return writer;
   },
@@ -162,9 +165,17 @@ export const SummaryRows: MessageFns<SummaryRows> = {
             break;
           }
 
-          const entry1 = SummaryRows_RowsEntry.decode(reader, reader.uint32());
-          if (entry1.value !== undefined) {
-            message.rows.set(entry1.key, entry1.value);
+          message.header.push(reader.string());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          const entry2 = SummaryRows_RowsEntry.decode(reader, reader.uint32());
+          if (entry2.value !== undefined) {
+            message.rows.set(entry2.key, entry2.value);
           }
           continue;
         }
@@ -179,6 +190,7 @@ export const SummaryRows: MessageFns<SummaryRows> = {
 
   fromJSON(object: any): SummaryRows {
     return {
+      header: globalThis.Array.isArray(object?.header) ? object.header.map((e: any) => globalThis.String(e)) : [],
       rows: isObject(object.rows)
         ? Object.entries(object.rows).reduce<Map<string, SummaryValues>>((acc, [key, value]) => {
           acc.set(key, SummaryValues.fromJSON(value));
@@ -190,6 +202,9 @@ export const SummaryRows: MessageFns<SummaryRows> = {
 
   toJSON(message: SummaryRows): unknown {
     const obj: any = {};
+    if (message.header?.length) {
+      obj.header = message.header;
+    }
     if (message.rows?.size) {
       obj.rows = {};
       message.rows.forEach((v, k) => {
@@ -267,16 +282,13 @@ export const SummaryRows_RowsEntry: MessageFns<SummaryRows_RowsEntry> = {
 };
 
 function createBaseSummaryFile(): SummaryFile {
-  return { header: [], rows: [] };
+  return { rows: [] };
 }
 
 export const SummaryFile: MessageFns<SummaryFile> = {
   encode(message: SummaryFile, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    for (const v of message.header) {
-      writer.uint32(10).string(v!);
-    }
     for (const v of message.rows) {
-      SummaryRows.encode(v!, writer.uint32(18).fork()).join();
+      SummaryRows.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -293,14 +305,6 @@ export const SummaryFile: MessageFns<SummaryFile> = {
             break;
           }
 
-          message.header.push(reader.string());
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
           message.rows.push(SummaryRows.decode(reader, reader.uint32()));
           continue;
         }
@@ -314,17 +318,11 @@ export const SummaryFile: MessageFns<SummaryFile> = {
   },
 
   fromJSON(object: any): SummaryFile {
-    return {
-      header: globalThis.Array.isArray(object?.header) ? object.header.map((e: any) => globalThis.String(e)) : [],
-      rows: globalThis.Array.isArray(object?.rows) ? object.rows.map((e: any) => SummaryRows.fromJSON(e)) : [],
-    };
+    return { rows: globalThis.Array.isArray(object?.rows) ? object.rows.map((e: any) => SummaryRows.fromJSON(e)) : [] };
   },
 
   toJSON(message: SummaryFile): unknown {
     const obj: any = {};
-    if (message.header?.length) {
-      obj.header = message.header;
-    }
     if (message.rows?.length) {
       obj.rows = message.rows.map((e) => SummaryRows.toJSON(e));
     }

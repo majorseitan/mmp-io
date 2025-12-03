@@ -7,9 +7,12 @@ import (
 	"github.com/mwm1/mmp-io/lib"
 )
 
-var BuildId string
-var BuildTime string
-var MMPioVersion string
+// Build information variables set at compile time via ldflags
+var (
+	BuildId      string
+	BuildTime    string
+	MMPioVersion string
+)
 
 func test(this js.Value, args []js.Value) interface{} {
 	if len(args) > 0 {
@@ -27,7 +30,10 @@ func main() {
 		lib.BufferVariants,
 		lib.BufferSummaryPasses,
 		lib.SummaryBytesString,
+		lib.HeaderBytesString,
+		lib.CreateHeader,
 		lib.FileHeader,
 	})
+	// Keep the program running indefinitely to serve WASM function calls
 	select {}
 }

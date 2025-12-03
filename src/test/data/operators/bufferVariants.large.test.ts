@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../wasm';
-import { createFileColumnsIndex } from './collectVariants';
-import type { LocalFileConfiguration, PipelineConfiguration, StepCallBack } from '../model';
+import { wasmReady } from '../../../data/wasm';
+import { createFileColumnsIndex } from '../../../data/operators//collectVariants';
+import type { LocalFileConfiguration, PipelineConfiguration, StepCallBack } from '../../../data/model';
 
 // This test is intentionally large and will only run when the env var
 // RUN_LARGE_TESTS is set to '1'. Run with:

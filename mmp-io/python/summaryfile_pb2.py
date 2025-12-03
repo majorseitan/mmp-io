@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11summaryfile.proto\x12\x0bsummaryfile\")\n\rSummaryHeader\x12\x18\n\x07\x63olumns\x18\x01 \x03(\tR\x07\x63olumns\"\'\n\rSummaryValues\x12\x16\n\x06values\x18\x01 \x03(\tR\x06values\"\x9a\x01\n\x0bSummaryRows\x12\x36\n\x04rows\x18\x01 \x03(\x0b\x32\".summaryfile.SummaryRows.RowsEntryR\x04rows\x1aS\n\tRowsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x30\n\x05value\x18\x02 \x01(\x0b\x32\x1a.summaryfile.SummaryValuesR\x05value:\x02\x38\x01\"S\n\x0bSummaryFile\x12\x16\n\x06header\x18\x01 \x03(\tR\x06header\x12,\n\x04rows\x18\x02 \x03(\x0b\x32\x18.summaryfile.SummaryRowsR\x04rowsB,Z*github.com/majorseitan/MMP_2024/mmp-io;libb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11summaryfile.proto\x12\x0bsummaryfile\")\n\rSummaryHeader\x12\x18\n\x07\x63olumns\x18\x01 \x03(\tR\x07\x63olumns\"\'\n\rSummaryValues\x12\x16\n\x06values\x18\x01 \x03(\tR\x06values\"\xb2\x01\n\x0bSummaryRows\x12\x16\n\x06header\x18\x01 \x03(\tR\x06header\x12\x36\n\x04rows\x18\x02 \x03(\x0b\x32\".summaryfile.SummaryRows.RowsEntryR\x04rows\x1aS\n\tRowsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x30\n\x05value\x18\x02 \x01(\x0b\x32\x1a.summaryfile.SummaryValuesR\x05value:\x02\x38\x01\";\n\x0bSummaryFile\x12,\n\x04rows\x18\x01 \x03(\x0b\x32\x18.summaryfile.SummaryRowsR\x04rowsB,Z*github.com/majorseitan/MMP_2024/mmp-io;libb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,9 +39,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SUMMARYVALUES']._serialized_start=77
   _globals['_SUMMARYVALUES']._serialized_end=116
   _globals['_SUMMARYROWS']._serialized_start=119
-  _globals['_SUMMARYROWS']._serialized_end=273
-  _globals['_SUMMARYROWS_ROWSENTRY']._serialized_start=190
-  _globals['_SUMMARYROWS_ROWSENTRY']._serialized_end=273
-  _globals['_SUMMARYFILE']._serialized_start=275
+  _globals['_SUMMARYROWS']._serialized_end=297
+  _globals['_SUMMARYROWS_ROWSENTRY']._serialized_start=214
+  _globals['_SUMMARYROWS_ROWSENTRY']._serialized_end=297
+  _globals['_SUMMARYFILE']._serialized_start=299
   _globals['_SUMMARYFILE']._serialized_end=358
 # @@protoc_insertion_point(module_scope)

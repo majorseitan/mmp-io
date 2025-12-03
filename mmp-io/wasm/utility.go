@@ -8,7 +8,7 @@ import (
 	"syscall/js"
 )
 
-func console_log(msg string) {
+func consoleLog(msg string) {
 	js.Global().Get("console").Call("log", msg)
 }
 
@@ -24,15 +24,15 @@ func registerFunction(fn interface{}) {
 	wrapped := WrapToJS(fn, false)
 
 	js.Global().Set(name, wrapped)
-	console_log(fmt.Sprintf("Registered '%s' function", name))
+	consoleLog(fmt.Sprintf("Registered '%s' function", name))
 }
 
 func registerCallbacks(funcs []interface{}) {
-	console_log("registerCallbacks: starting")
+	consoleLog("registerCallbacks: starting")
 
 	for _, fn := range funcs {
 		registerFunction(fn)
 	}
 
-	console_log("registerCallbacks: completed")
+	consoleLog("registerCallbacks: completed")
 }

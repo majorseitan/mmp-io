@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -437,16 +438,18 @@ func TestSerializeAssociationStatistic(t *testing.T) {
 func TestMarshalSummaryRows(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    []map[string]*SummaryValues
+		input    []SummaryRows
 		wantErr  bool
 		validate func(t *testing.T, result [][]byte)
 	}{
 		{
 			name: "single partition with one variant",
-			input: []map[string]*SummaryValues{
+			input: []SummaryRows{
 				{
-					"1\t12345\tA\tT": &SummaryValues{
-						Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {
+							Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+						},
 					},
 				},
 			},
@@ -475,18 +478,22 @@ func TestMarshalSummaryRows(t *testing.T) {
 		},
 		{
 			name: "multiple partitions",
-			input: []map[string]*SummaryValues{
+			input: []SummaryRows{
 				{
-					"1\t12345\tA\tT": &SummaryValues{
-						Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {
+							Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+						},
 					},
 				},
 				{
-					"2\t67890\tG\tC": &SummaryValues{
-						Values: []string{"5.000000e-03", "0.250000", "0.050000", "0.400000"},
-					},
-					"3\t11111\tC\tG": &SummaryValues{
-						Values: []string{"1.500000e-08", "0.350000", "0.080000", "0.500000"},
+					Rows: map[string]*SummaryValues{
+						"2\t67890\tG\tC": {
+							Values: []string{"5.000000e-03", "0.250000", "0.050000", "0.400000"},
+						},
+						"3\t11111\tC\tG": {
+							Values: []string{"1.500000e-08", "0.350000", "0.080000", "0.500000"},
+						},
 					},
 				},
 			},
@@ -516,8 +523,10 @@ func TestMarshalSummaryRows(t *testing.T) {
 		},
 		{
 			name: "empty partition",
-			input: []map[string]*SummaryValues{
-				{},
+			input: []SummaryRows{
+				{
+					Rows: map[string]*SummaryValues{},
+				},
 			},
 			wantErr: false,
 			validate: func(t *testing.T, result [][]byte) {
@@ -536,7 +545,7 @@ func TestMarshalSummaryRows(t *testing.T) {
 		},
 		{
 			name:    "no partitions",
-			input:   []map[string]*SummaryValues{},
+			input:   []SummaryRows{},
 			wantErr: false,
 			validate: func(t *testing.T, result [][]byte) {
 				if len(result) != 0 {
@@ -546,16 +555,18 @@ func TestMarshalSummaryRows(t *testing.T) {
 		},
 		{
 			name: "multiple variants in single partition",
-			input: []map[string]*SummaryValues{
+			input: []SummaryRows{
 				{
-					"1\t12345\tA\tT": &SummaryValues{
-						Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
-					},
-					"2\t67890\tG\tC": &SummaryValues{
-						Values: []string{"5.000000e-03", "0.250000", "0.050000", "0.400000"},
-					},
-					"X\t99999\tT\tA": &SummaryValues{
-						Values: []string{"1.000000e-05", "0.100000", "0.020000", "0.150000"},
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {
+							Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+						},
+						"2\t67890\tG\tC": {
+							Values: []string{"5.000000e-03", "0.250000", "0.050000", "0.400000"},
+						},
+						"X\t99999\tT\tA": {
+							Values: []string{"1.000000e-05", "0.100000", "0.020000", "0.150000"},
+						},
 					},
 				},
 			},
@@ -583,10 +594,12 @@ func TestMarshalSummaryRows(t *testing.T) {
 		},
 		{
 			name: "verify values are preserved",
-			input: []map[string]*SummaryValues{
+			input: []SummaryRows{
 				{
-					"1\t12345\tA\tT": &SummaryValues{
-						Values: []string{"1.500000e-08", "-0.300000", "0.080000", "0.200000"},
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {
+							Values: []string{"1.500000e-08", "-0.300000", "0.080000", "0.200000"},
+						},
 					},
 				},
 			},
@@ -628,6 +641,199 @@ func TestMarshalSummaryRows(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("marshalSummaryRows() unexpected error: %v", err)
+				} else if tt.validate != nil {
+					tt.validate(t, result)
+				}
+			}
+		})
+	}
+}
+
+func TestUnmarshalSummaryRows(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() [][]byte
+		wantErr  bool
+		validate func(t *testing.T, result []*SummaryRows)
+	}{
+		{
+			name: "single partition with one variant",
+			setup: func() [][]byte {
+				summaryRows := SummaryRows{
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {
+							Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+						},
+					},
+				}
+				data, _ := proto.Marshal(&summaryRows)
+				return [][]byte{data}
+			},
+			wantErr: false,
+			validate: func(t *testing.T, result []*SummaryRows) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 partition, got %d", len(result))
+				}
+				if len(result[0].Rows) != 1 {
+					t.Errorf("expected 1 variant, got %d", len(result[0].Rows))
+				}
+				val, ok := result[0].Rows["1\t12345\tA\tT"]
+				if !ok {
+					t.Fatal("variant key not found")
+				}
+				if len(val.Values) != 4 {
+					t.Errorf("expected 4 values, got %d", len(val.Values))
+				}
+				expected := []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"}
+				for i, exp := range expected {
+					if val.Values[i] != exp {
+						t.Errorf("value[%d] = %q, want %q", i, val.Values[i], exp)
+					}
+				}
+			},
+		},
+		{
+			name: "multiple partitions with multiple variants",
+			setup: func() [][]byte {
+				summaryRows1 := SummaryRows{
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {
+							Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+						},
+						"2\t67890\tG\tC": {
+							Values: []string{"5.000000e-03", "0.250000", "0.050000", "0.400000"},
+						},
+					},
+				}
+				summaryRows2 := SummaryRows{
+					Rows: map[string]*SummaryValues{
+						"3\t11111\tC\tG": {
+							Values: []string{"1.500000e-08", "0.350000", "0.080000", "0.500000"},
+						},
+					},
+				}
+				data1, _ := proto.Marshal(&summaryRows1)
+				data2, _ := proto.Marshal(&summaryRows2)
+				return [][]byte{data1, data2}
+			},
+			wantErr: false,
+			validate: func(t *testing.T, result []*SummaryRows) {
+				if len(result) != 2 {
+					t.Fatalf("expected 2 partitions, got %d", len(result))
+				}
+				if len(result[0].Rows) != 2 {
+					t.Errorf("partition 0: expected 2 variants, got %d", len(result[0].Rows))
+				}
+				if len(result[1].Rows) != 1 {
+					t.Errorf("partition 1: expected 1 variant, got %d", len(result[1].Rows))
+				}
+			},
+		},
+		{
+			name: "empty partition",
+			setup: func() [][]byte {
+				summaryRows := SummaryRows{
+					Rows: map[string]*SummaryValues{},
+				}
+				data, _ := proto.Marshal(&summaryRows)
+				return [][]byte{data}
+			},
+			wantErr: false,
+			validate: func(t *testing.T, result []*SummaryRows) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 partition, got %d", len(result))
+				}
+				if len(result[0].Rows) != 0 {
+					t.Errorf("expected 0 variants, got %d", len(result[0].Rows))
+				}
+			},
+		},
+		{
+			name: "no partitions",
+			setup: func() [][]byte {
+				return [][]byte{}
+			},
+			wantErr: false,
+			validate: func(t *testing.T, result []*SummaryRows) {
+				if len(result) != 0 {
+					t.Errorf("expected 0 partitions, got %d", len(result))
+				}
+			},
+		},
+		{
+			name: "invalid protobuf data",
+			setup: func() [][]byte {
+				return [][]byte{[]byte("invalid protobuf data")}
+			},
+			wantErr: true,
+			validate: func(t *testing.T, result []*SummaryRows) {
+				// Should not reach here
+			},
+		},
+		{
+			name: "round trip marshal then unmarshal",
+			setup: func() [][]byte {
+				input := []SummaryRows{
+					{
+						Rows: map[string]*SummaryValues{
+							"1\t12345\tA\tT": {
+								Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"},
+							},
+						},
+					},
+					{
+						Rows: map[string]*SummaryValues{
+							"X\t99999\tT\tA": {
+								Values: []string{"1.000000e-05", "0.100000", "0.020000", "0.150000"},
+							},
+						},
+					},
+				}
+				result, _ := marshalSummaryRows(input)
+				return result
+			},
+			wantErr: false,
+			validate: func(t *testing.T, result []*SummaryRows) {
+				if len(result) != 2 {
+					t.Fatalf("expected 2 partitions, got %d", len(result))
+				}
+				// Verify first partition
+				val1, ok := result[0].Rows["1\t12345\tA\tT"]
+				if !ok {
+					t.Fatal("variant 1 not found")
+				}
+				expected1 := []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"}
+				for i, exp := range expected1 {
+					if val1.Values[i] != exp {
+						t.Errorf("partition 0 value[%d] = %q, want %q", i, val1.Values[i], exp)
+					}
+				}
+				// Verify second partition
+				val2, ok := result[1].Rows["X\t99999\tT\tA"]
+				if !ok {
+					t.Fatal("variant 2 not found")
+				}
+				expected2 := []string{"1.000000e-05", "0.100000", "0.020000", "0.150000"}
+				for i, exp := range expected2 {
+					if val2.Values[i] != exp {
+						t.Errorf("partition 1 value[%d] = %q, want %q", i, val2.Values[i], exp)
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := tt.setup()
+			result, err := unmarshalSummaryRows(input)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("unmarshalSummaryRows() expected error, got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unmarshalSummaryRows() unexpected error: %v", err)
 				} else if tt.validate != nil {
 					tt.validate(t, result)
 				}
@@ -962,6 +1168,16 @@ func TestBufferSummaryPasses(t *testing.T) {
 				if err := proto.Unmarshal(result[0], &summaryRows); err != nil {
 					t.Fatalf("failed to unmarshal: %v", err)
 				}
+				// Check header is populated
+				if len(summaryRows.Header) != 4 {
+					t.Errorf("expected 4 header columns, got %d", len(summaryRows.Header))
+				}
+				expectedHeader := []string{"test_pval", "test_beta", "test_sebeta", "test_af"}
+				for i, h := range expectedHeader {
+					if i >= len(summaryRows.Header) || summaryRows.Header[i] != h {
+						t.Errorf("header[%d] = %q, want %q", i, summaryRows.Header[i], h)
+					}
+				}
 				if len(summaryRows.Rows) != 2 {
 					t.Errorf("expected 2 variants in partition, got %d", len(summaryRows.Rows))
 				}
@@ -1010,6 +1226,10 @@ func TestBufferSummaryPasses(t *testing.T) {
 				if err := proto.Unmarshal(result[0], &summaryRows1); err != nil {
 					t.Fatalf("failed to unmarshal partition 0: %v", err)
 				}
+				// Check header is populated for first partition
+				if len(summaryRows1.Header) != 4 {
+					t.Errorf("partition 0: expected 4 header columns, got %d", len(summaryRows1.Header))
+				}
 				if len(summaryRows1.Rows) != 1 {
 					t.Errorf("partition 0: expected 1 variant, got %d", len(summaryRows1.Rows))
 				}
@@ -1017,6 +1237,10 @@ func TestBufferSummaryPasses(t *testing.T) {
 				var summaryRows2 SummaryRows
 				if err := proto.Unmarshal(result[1], &summaryRows2); err != nil {
 					t.Fatalf("failed to unmarshal partition 1: %v", err)
+				}
+				// Check header is populated for second partition
+				if len(summaryRows2.Header) != 4 {
+					t.Errorf("partition 1: expected 4 header columns, got %d", len(summaryRows2.Header))
 				}
 				if len(summaryRows2.Rows) != 2 {
 					t.Errorf("partition 1: expected 2 variants, got %d", len(summaryRows2.Rows))
@@ -1053,6 +1277,10 @@ func TestBufferSummaryPasses(t *testing.T) {
 				var summaryRows SummaryRows
 				if err := proto.Unmarshal(result[0], &summaryRows); err != nil {
 					t.Fatalf("failed to unmarshal: %v", err)
+				}
+				// Check header is populated even with missing variant
+				if len(summaryRows.Header) != 4 {
+					t.Errorf("expected 4 header columns, got %d", len(summaryRows.Header))
 				}
 				// Only 1 variant should be in the result (the missing one is not an error)
 				if len(summaryRows.Rows) != 1 {
@@ -1119,8 +1347,71 @@ func TestBufferSummaryPasses(t *testing.T) {
 				if err := proto.Unmarshal(result[0], &summaryRows); err != nil {
 					t.Fatalf("failed to unmarshal: %v", err)
 				}
+				// Check header is populated even when only 1 variant matches
+				if len(summaryRows.Header) != 4 {
+					t.Errorf("expected 4 header columns, got %d", len(summaryRows.Header))
+				}
 				if len(summaryRows.Rows) != 1 {
 					t.Errorf("expected 1 variant, got %d", len(summaryRows.Rows))
+				}
+			},
+		},
+		{
+			name: "partition with no matching variants - header still populated",
+			buffer: []byte("1\t12345\tA\tT\t0.001\t0.5\t0.1\t0.3\n" +
+				"2\t67890\tG\tC\t0.01\t0.2\t0.05\t0.4\n"),
+			metadata: BlockMetadata{
+				Tag: "study1",
+				FileColumnsIndex: FileColumnsIndex{
+					ColumnChromosome:      0,
+					ColumnPosition:        1,
+					ColumnReference:       2,
+					ColumnAlternate:       3,
+					ColumnPValue:          4,
+					ColumnBeta:            5,
+					ColumnSEBeta:          6,
+					ColumnAlleleFrequency: 7,
+				},
+				PvalThreshold: 0.05,
+				Delimiter:     "\t",
+			},
+			partitions: [][]string{
+				{"1\t12345\tA\tT"},
+				{"3\t99999\tT\tA"}, // This variant is not in the buffer
+			},
+			wantErr: false,
+			validate: func(t *testing.T, result [][]byte) {
+				if len(result) != 2 {
+					t.Errorf("expected 2 partitions, got %d", len(result))
+					return
+				}
+				// Check first partition has data and header
+				var summaryRows1 SummaryRows
+				if err := proto.Unmarshal(result[0], &summaryRows1); err != nil {
+					t.Fatalf("failed to unmarshal partition 0: %v", err)
+				}
+				if len(summaryRows1.Header) != 4 {
+					t.Errorf("partition 0: expected 4 header columns, got %d", len(summaryRows1.Header))
+				}
+				if len(summaryRows1.Rows) != 1 {
+					t.Errorf("partition 0: expected 1 variant, got %d", len(summaryRows1.Rows))
+				}
+				// Check second partition has header even with no matching variants
+				var summaryRows2 SummaryRows
+				if err := proto.Unmarshal(result[1], &summaryRows2); err != nil {
+					t.Fatalf("failed to unmarshal partition 1: %v", err)
+				}
+				if len(summaryRows2.Header) != 4 {
+					t.Errorf("partition 1: expected 4 header columns even with no variants, got %d", len(summaryRows2.Header))
+				}
+				expectedHeader := []string{"study1_pval", "study1_beta", "study1_sebeta", "study1_af"}
+				for i, h := range expectedHeader {
+					if i >= len(summaryRows2.Header) || summaryRows2.Header[i] != h {
+						t.Errorf("partition 1 header[%d] = %q, want %q", i, summaryRows2.Header[i], h)
+					}
+				}
+				if len(summaryRows2.Rows) != 0 {
+					t.Errorf("partition 1: expected 0 variants, got %d", len(summaryRows2.Rows))
 				}
 			},
 		},
@@ -1371,6 +1662,7 @@ func TestSummaryBytesString(t *testing.T) {
 			name: "single partition, single variant",
 			buffer: func() [][]byte {
 				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta", "af"},
 					Rows: map[string]*SummaryValues{
 						"1\t12345\tA\tT": {Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"}},
 					},
@@ -1388,11 +1680,13 @@ func TestSummaryBytesString(t *testing.T) {
 			name: "multiple partitions, single variant each",
 			buffer: func() [][]byte {
 				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta", "s1_sebeta", "s1_af"},
 					Rows: map[string]*SummaryValues{
 						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
 					},
 				}
 				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta", "s2_sebeta", "s2_af"},
 					Rows: map[string]*SummaryValues{
 						"1\t200\tG\tC": {Values: []string{"0.002", "0.6", "0.2", "0.4"}},
 					},
@@ -1403,8 +1697,8 @@ func TestSummaryBytesString(t *testing.T) {
 			}(),
 			delimiter: "\t",
 			expected: map[string]string{
-				"1\t100\tA\tT": "0.001\t0.5\t0.1\t0.3",
-				"1\t200\tG\tC": "0.002\t0.6\t0.2\t0.4",
+				"1\t100\tA\tT": "0.001\t0.5\t0.1\t0.3\tNA\tNA\tNA\tNA",
+				"1\t200\tG\tC": "NA\tNA\tNA\tNA\t0.002\t0.6\t0.2\t0.4",
 			},
 			wantErr: false,
 		},
@@ -1412,12 +1706,14 @@ func TestSummaryBytesString(t *testing.T) {
 			name: "multiple variants across multiple partitions",
 			buffer: func() [][]byte {
 				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta", "s1_sebeta", "s1_af"},
 					Rows: map[string]*SummaryValues{
 						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
 						"1\t200\tG\tC": {Values: []string{"0.002", "0.6", "0.2", "0.4"}},
 					},
 				}
 				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta", "s2_sebeta", "s2_af"},
 					Rows: map[string]*SummaryValues{
 						"1\t100\tA\tT": {Values: []string{"0.003", "0.7", "0.3", "0.5"}},
 						"1\t200\tG\tC": {Values: []string{"0.004", "0.8", "0.4", "0.6"}},
@@ -1438,6 +1734,7 @@ func TestSummaryBytesString(t *testing.T) {
 			name: "comma delimiter",
 			buffer: func() [][]byte {
 				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta", "af"},
 					Rows: map[string]*SummaryValues{
 						"1,12345,A,T": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
 					},
@@ -1452,15 +1749,36 @@ func TestSummaryBytesString(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "empty buffer",
+			name: "empty partition with header",
 			buffer: func() [][]byte {
-				rows := &SummaryRows{Rows: map[string]*SummaryValues{}}
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta"},
+					Rows:   map[string]*SummaryValues{},
+				}
 				data, _ := proto.Marshal(rows)
 				return [][]byte{data}
 			}(),
 			delimiter: "\t",
 			expected:  map[string]string{},
 			wantErr:   false,
+		},
+		{
+			name: "partition without header - empty header",
+			buffer: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			}(),
+			delimiter: "\t",
+			expected: map[string]string{
+				"1\t100\tA\tT": "0.001\t0.5",
+			},
+			wantErr: false,
 		},
 		{
 			name:      "invalid protobuf data",
@@ -1514,6 +1832,308 @@ func TestSummaryBytesString(t *testing.T) {
 				if !expectedSet[line] {
 					t.Errorf("SummaryBytesString() unexpected value in result: %q", line)
 				}
+			}
+		})
+	}
+}
+
+
+func TestCreateHeader(t *testing.T) {
+	tests := []struct {
+		name     string
+		tag      string
+		expected []string
+	}{
+		{
+			name:     "standard tag",
+			tag:      "finngen",
+			expected: []string{"finngen_pval", "finngen_beta", "finngen_sebeta", "finngen_af"},
+		},
+		{
+			name:     "empty tag",
+			tag:      "",
+			expected: []string{"_pval", "_beta", "_sebeta", "_af"},
+		},
+		{
+			name:     "tag with special characters",
+			tag:      "study-v2.1",
+			expected: []string{"study-v2.1_pval", "study-v2.1_beta", "study-v2.1_sebeta", "study-v2.1_af"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CreateHeader(tt.tag)
+			if len(result) != len(tt.expected) {
+				t.Fatalf("CreateHeader() length = %d, want %d", len(result), len(tt.expected))
+			}
+			for i, exp := range tt.expected {
+				if result[i] != exp {
+					t.Errorf("CreateHeader()[%d] = %q, want %q", i, result[i], exp)
+				}
+			}
+		})
+	}
+}
+
+func TestHeaderBytesString(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func() [][]byte
+		delimiter string
+		expected  string
+		wantErr   bool
+	}{
+		{
+			name: "single partition with header",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"study1_pval", "study1_beta", "study1_sebeta", "study1_af"},
+					Rows:   map[string]*SummaryValues{},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: "\t",
+			expected:  "study1_pval\tstudy1_beta\tstudy1_sebeta\tstudy1_af",
+			wantErr:   false,
+		},
+		{
+			name: "multiple partitions with headers",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"study1_pval", "study1_beta"},
+					Rows:   map[string]*SummaryValues{},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"study2_pval", "study2_beta"},
+					Rows:   map[string]*SummaryValues{},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter: "\t",
+			expected:  "study1_pval\tstudy1_beta\tstudy2_pval\tstudy2_beta",
+			wantErr:   false,
+		},
+		{
+			name: "comma delimiter",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta"},
+					Rows:   map[string]*SummaryValues{},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: ",",
+			expected:  "pval,beta,sebeta",
+			wantErr:   false,
+		},
+		{
+			name: "empty headers",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{},
+					Rows:   map[string]*SummaryValues{},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: "\t",
+			expected:  "",
+			wantErr:   false,
+		},
+		{
+			name: "no partitions",
+			setup: func() [][]byte {
+				return [][]byte{}
+			},
+			delimiter: "\t",
+			expected:  "",
+			wantErr:   false,
+		},
+		{
+			name: "invalid protobuf data",
+			setup: func() [][]byte {
+				return [][]byte{[]byte("invalid protobuf")}
+			},
+			delimiter: "\t",
+			expected:  "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buffer := tt.setup()
+			result, err := HeaderBytesString(buffer, tt.delimiter)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("HeaderBytesString() expected error, got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("HeaderBytesString() unexpected error: %v", err)
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("HeaderBytesString() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSummaryBytesStringWithMissingValues(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func() [][]byte
+		delimiter string
+		validate  func(t *testing.T, result []string)
+		wantErr   bool
+	}{
+		{
+			name: "variant missing in second partition - fill with NA",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta", "s1_sebeta", "s1_af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
+						"1\t200\tG\tC": {Values: []string{"0.002", "0.6", "0.2", "0.4"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta", "s2_sebeta", "s2_af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.003", "0.7", "0.3", "0.5"}},
+						// 1\t200\tG\tC is missing in partition 2
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter: "\t",
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 2 {
+					t.Fatalf("expected 2 variants, got %d", len(result))
+				}
+				// Find the result for variant "1\t200\tG\tC"
+				var foundMissingVariant bool
+				for _, line := range result {
+					if strings.Contains(line, "0.002\t0.6\t0.2\t0.4\tNA\tNA\tNA\tNA") {
+						foundMissingVariant = true
+						break
+					}
+				}
+				if !foundMissingVariant {
+					t.Error("expected to find variant with NA values for missing partition")
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "variant missing in first partition - fill with NA",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta", "s1_sebeta", "s1_af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
+						// 1\t200\tG\tC is missing in partition 1
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta", "s2_sebeta", "s2_af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.003", "0.7", "0.3", "0.5"}},
+						"1\t200\tG\tC": {Values: []string{"0.004", "0.8", "0.4", "0.6"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter: "\t",
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 2 {
+					t.Fatalf("expected 2 variants, got %d", len(result))
+				}
+				// Find the result for variant "1\t200\tG\tC"
+				var foundMissingVariant bool
+				for _, line := range result {
+					if strings.Contains(line, "NA\tNA\tNA\tNA\t0.004\t0.8\t0.4\t0.6") {
+						foundMissingVariant = true
+						break
+					}
+				}
+				if !foundMissingVariant {
+					t.Error("expected to find variant with NA values for missing partition")
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "variant in some partitions but not all - multiple NAs",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta"},
+					Rows:   map[string]*SummaryValues{
+						// empty
+					},
+				}
+				rows3 := &SummaryRows{
+					Header: []string{"s3_pval", "s3_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.003", "0.7"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				data3, _ := proto.Marshal(rows3)
+				return [][]byte{data1, data2, data3}
+			},
+			delimiter: "\t",
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 variant, got %d", len(result))
+				}
+				expected := "0.001\t0.5\tNA\tNA\t0.003\t0.7"
+				if result[0] != expected {
+					t.Errorf("result = %q, want %q", result[0], expected)
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buffer := tt.setup()
+			result, err := SummaryBytesString(buffer, tt.delimiter)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("SummaryBytesString() expected error, got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("SummaryBytesString() unexpected error: %v", err)
+				return
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, result)
 			}
 		})
 	}

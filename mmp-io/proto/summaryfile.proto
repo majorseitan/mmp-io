@@ -20,11 +20,11 @@ message SummaryValues {
 
 // SummaryRows contains a map of variant (VariantKey) to values
 message SummaryRows {
-  map<string, SummaryValues> rows = 1;  // key is VariantKey: "chrom\tpos\tref\talt"
+  repeated string header = 1;
+  map<string, SummaryValues> rows = 2;  // key is VariantKey: "chrom\tpos\tref\talt"
 }
 
 // SummaryFile represents the complete summary file structure
 message SummaryFile {
-  repeated string header = 1;
-  repeated SummaryRows rows = 2;
+  repeated SummaryRows rows = 1;
 }

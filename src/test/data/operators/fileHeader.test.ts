@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../../data/wasm';
+import { wasmReady } from '../../../data/wasm';
 
 describe('FileHeader WASM binding', () => {
     beforeAll(async () => {

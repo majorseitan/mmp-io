@@ -10,7 +10,7 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-X main.MMPioVersion=$(VERSION) -X main.BuildID=$(BUILD_ID) -X main.BuildTime=$(BUILD_TIME)
 
 
-build: lib/mmp-io.pb.go
+build: lib/mmp-io.pb.go */*.go
 	GOOS=js GOARCH=wasm go build -ldflags "$(LDFLAGS)" -o main.wasm ./wasm
 
 test:
@@ -23,8 +23,9 @@ copy: build
 	cp main.wasm ../public/wasm/
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" ../public/wasm/
 
-lib/mmp-io.pb.go: proto/*.proto buf.yaml buf.gen.yaml
+lib/mmp-io.pb.go lib/summaryfile.pb.go: proto/*.proto buf.yaml buf.gen.yaml
 	buf generate
+	buf build -o proto/descriptor.binpb
 
 clean:
 	@rm -f main.wasm

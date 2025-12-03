@@ -79,11 +79,13 @@ func parseAssociationStatistic(buffer []string, indexHeader FileColumnsIndex) (*
 }
 
 func serializeAssociationStatistic(assocStat *AssociationStatistic) []string {
-	pvalue := fmt.Sprintf("%e", assocStat.PValue)
-	beta := fmt.Sprintf("%f", assocStat.Beta)
-	sebeta := fmt.Sprintf("%f", assocStat.Sebeta)
-	af := fmt.Sprintf("%f", assocStat.Af)
-	return []string{pvalue, beta, sebeta, af}
+	// Pre-allocate slice with exact capacity to avoid reallocation
+	result := make([]string, 4)
+	result[0] = fmt.Sprintf("%e", assocStat.PValue)
+	result[1] = fmt.Sprintf("%f", assocStat.Beta)
+	result[2] = fmt.Sprintf("%f", assocStat.Sebeta)
+	result[3] = fmt.Sprintf("%f", assocStat.Af)
+	return result
 }
 
 func parseVariant(buffer []string, indexHeader FileColumnsIndex) (*Variant, error) {
@@ -105,48 +107,65 @@ func parseVariant(buffer []string, indexHeader FileColumnsIndex) (*Variant, erro
 }
 
 func variantKey(variant *Variant, delimiter string) string {
-	return fmt.Sprintf("%d%s%d%s%s%s%s", variant.Chromosome, delimiter, variant.Position, delimiter, variant.Ref, delimiter, variant.Alt)
+	var b strings.Builder
+	b.Grow(32) // Pre-allocate reasonable size
+	b.WriteString(strconv.FormatUint(uint64(variant.Chromosome), 10))
+	b.WriteString(delimiter)
+	b.WriteString(strconv.FormatUint(variant.Position, 10))
+	b.WriteString(delimiter)
+	b.WriteString(variant.Ref)
+	b.WriteString(delimiter)
+	b.WriteString(variant.Alt)
+	return b.String()
 }
 
-func unmarshalSummaryRows(data [][]byte) ([]map[string]*SummaryValues, error) {
-	result := make([]map[string]*SummaryValues, len(data))
+func unmarshalSummaryRows(data [][]byte) ([]*SummaryRows, error) {
+	result := make([]*SummaryRows, len(data))
 	for i, blockBytes := range data {
 		summaryRows := &SummaryRows{}
 		if err := proto.Unmarshal(blockBytes, summaryRows); err != nil {
 			return nil, fmt.Errorf("unmarshal block %d: %w", i, err)
 		}
-		result[i] = summaryRows.Rows
+		result[i] = summaryRows
 	}
 	return result, nil
 }
 
-func marshalSummaryRows(result []map[string]*SummaryValues) ([][]byte, error) {
+func marshalSummaryRows(result []SummaryRows) ([][]byte, error) {
 	blockBytes := make([][]byte, len(result))
 	for i := range result {
-		v := result[i]
-		summaryRows := &SummaryRows{Rows: v}
+		summaryRows := &result[i]
 		var err error
 		blockBytes[i], err = proto.Marshal(summaryRows)
 		if err != nil {
 			return nil, err
 		}
-
 	}
 	return blockBytes, nil
+}
+
+func CreateHeader(tag string) []string {
+	return []string{
+		fmt.Sprintf("%s_pval", tag),
+		fmt.Sprintf("%s_beta", tag),
+		fmt.Sprintf("%s_sebeta", tag),
+		fmt.Sprintf("%s_af", tag),
+	}
 }
 
 func BufferSummaryPasses(buffer []byte, metadata BlockMetadata, partitions VariantPartitions) ([][]byte, error) {
 	dataReader := bytes.NewReader(buffer)
 	tableReader := csv.NewReader(dataReader)
 	tableReader.Comma = rune(metadata.Delimiter[0])
-	result := make([]map[string]*SummaryValues, 0)
+	result := make([]SummaryRows, len(partitions))
 
 	variantSet := make(map[string]int)
 	for i, group := range partitions {
 		for _, v := range group {
 			variantSet[v] = i
 		}
-		result = append(result, make(map[string]*SummaryValues))
+		result[i].Rows = make(map[string]*SummaryValues)
+		result[i].Header = CreateHeader(metadata.Tag)
 	}
 
 	requiredLen := max(metadata.FileColumnsIndex.ColumnChromosome, metadata.FileColumnsIndex.ColumnPosition,
@@ -174,24 +193,23 @@ func BufferSummaryPasses(buffer []byte, metadata BlockMetadata, partitions Varia
 			firstRow = false
 		}
 
-		parseVariant, err := parseVariant(row, metadata.FileColumnsIndex)
+		// Parse variant to check if it matches any partition
+		parsedVariant, err := parseVariant(row, metadata.FileColumnsIndex)
 		if err != nil {
 			return nil, err
 		}
 
-		key := variantKey(parseVariant, metadata.Delimiter)
+		key := variantKey(parsedVariant, metadata.Delimiter)
 
 		if index, ok := variantSet[key]; ok {
-
 			assoc, err := parseAssociationStatistic(row, metadata.FileColumnsIndex)
 			if err != nil {
 				return nil, err
 			}
 			statistics := serializeAssociationStatistic(assoc)
-			result[index][key] = &SummaryValues{Values: statistics}
+			result[index].Rows[key] = &SummaryValues{Values: statistics}
 		}
 	}
-
 	marshaledRows, err := marshalSummaryRows(result)
 	if err != nil {
 		return nil, err
@@ -207,9 +225,10 @@ func BufferVariants(buffer []byte, metadata BlockMetadata) ([]string, error) {
 	tableReader.Comma = rune(metadata.Delimiter[0])
 
 	var result []string
+	// Note: ColumnAlleleFrequency not included as it's not used in this function
 	requiredLen := max(metadata.FileColumnsIndex.ColumnChromosome, metadata.FileColumnsIndex.ColumnPosition,
 		metadata.FileColumnsIndex.ColumnReference, metadata.FileColumnsIndex.ColumnAlternate,
-		metadata.FileColumnsIndex.ColumnBeta, metadata.FileColumnsIndex.ColumnSEBeta, metadata.FileColumnsIndex.ColumnPValue) + 1
+		metadata.FileColumnsIndex.ColumnPValue) + 1
 	firstRow := true
 
 	for {
@@ -238,15 +257,35 @@ func BufferVariants(buffer []byte, metadata BlockMetadata) ([]string, error) {
 
 		// Only add variant if pvalue is less than threshold
 		if pvalue < metadata.PvalThreshold {
-			parseVariant, err := parseVariant(row, metadata.FileColumnsIndex)
+			parsedVariant, err := parseVariant(row, metadata.FileColumnsIndex)
 			if err != nil {
 				return nil, err
 			}
-			key := variantKey(parseVariant, metadata.Delimiter)
+			key := variantKey(parsedVariant, metadata.Delimiter)
 			result = append(result, key)
 		}
 	}
 	return result, nil
+}
+
+func HeaderBytesString(buffer [][]byte, delimiter string) (string, error) {
+	rows, err := unmarshalSummaryRows(buffer)
+	if err != nil {
+		return "", err
+	}
+	if len(rows) == 0 {
+		return "", nil
+	}
+	// Pre-calculate total capacity
+	totalHeaders := 0
+	for i := range rows {
+		totalHeaders += len(rows[i].Header)
+	}
+	result := make([]string, 0, totalHeaders)
+	for i := range rows {
+		result = append(result, rows[i].Header...)
+	}
+	return strings.Join(result, delimiter), nil
 }
 
 func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
@@ -255,9 +294,17 @@ func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
 		return nil, err
 	}
 
+	if len(rows) == 0 {
+		return []string{}, nil
+	}
+
+	rowLen := make([]int, len(rows))
+
 	variantSet := make(map[string]bool)
-	for _, rowMap := range rows {
-		for variant := range rowMap {
+	for i := range rows {
+		rowLen[i] = len(rows[i].Header)
+
+		for variant := range rows[i].Rows {
 			variantSet[variant] = true
 		}
 	}
@@ -268,14 +315,25 @@ func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
 		variants = append(variants, variant)
 	}
 
+	// Pre-calculate total values per variant for efficient allocation
+	totalValues := 0
+	for j := range rows {
+		totalValues += rowLen[j]
+	}
+
 	result := make([]string, len(variants))
 
 	for i, variant := range variants {
-		values := make([]string, 0)
-		for _, rowMap := range rows {
-			if summaryValues, ok := rowMap[variant]; ok {
+		values := make([]string, 0, totalValues)
+		for j := range rows {
+			if summaryValues, ok := rows[j].Rows[variant]; ok {
 				// Collect all values from this partition for this variant
 				values = append(values, summaryValues.Values...)
+			} else {
+				// Fill with NA for missing values
+				for k := 0; k < rowLen[j]; k++ {
+					values = append(values, "NA")
+				}
 			}
 		}
 		result[i] = strings.Join(values, delimiter)
@@ -284,6 +342,7 @@ func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
 	return result, nil
 }
 
+// FileHeader is an alias for CreateHeader for backwards compatibility
 func FileHeader(tag string) []string {
-	return []string{fmt.Sprintf("%s_pval", tag), fmt.Sprintf("%s_beta", tag), fmt.Sprintf("%s_sebeta", tag), fmt.Sprintf("%s_af", tag)}
+	return CreateHeader(tag)
 }

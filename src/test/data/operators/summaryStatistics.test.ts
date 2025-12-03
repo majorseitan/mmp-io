@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../wasm';
-import type { SummaryPass, SummmryPassAcumulator } from '../model';
-import { summaryStatistics } from './summaryStatistics';
+import { wasmReady } from '../../../data/wasm';
+import type { SummaryPass, SummmryPassAcumulator } from '../../../data/model';
+import { summaryStatistics } from '../../../data/operators/summaryStatistics';
 
 // Import the function from the module
 const summaryBytesWithIndex = (summaryPass: SummaryPass, delimiter: string): string[] => {

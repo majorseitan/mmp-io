@@ -11,15 +11,13 @@ export const finngenSummaryData = async (
     try {
         const jobId = finngenRequest.file_id
 
-        // Determine which blocks to fetch
         const blockIndices = finngenRequest.block_indices ?? [];
         if (blockIndices.length === 0) {
             throw new Error('No block_indices specified in request');
         }
 
-        // Fetch all blocks in parallel
         const blockPromises = blockIndices.map(async (blockIndex) => {
-            const url = `${API_BASE}/api/jobs/${jobId}/block/${blockIndex}`;
+            const url = `${API_BASE}/api/jobs/${jobId}/blocks/${blockIndex}`;
             const response = await fetch(url);
 
             if (!response.ok) {

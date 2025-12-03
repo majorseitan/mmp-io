@@ -256,13 +256,12 @@ describe('summaryStatistics', () => {
         );
 
         const accumulator: SummmryPassAcumulator = [file1Pass];
-        const headers = [['chr', 'pos', 'ref', 'alt']];
 
-        const result = await summaryStatistics('\t', headers, accumulator, mockCallback);
+        const result = await summaryStatistics('\t', accumulator, mockCallback);
         
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
-        expect(result.header).toBe('chr\tpos\tref\talt');
+        expect(result.header).toBe('file1_pval\tfile1_beta\tfile1_sebeta\tfile1_af');
         expect(result.data.length).toBeGreaterThan(0);
     });
 
@@ -296,13 +295,12 @@ describe('summaryStatistics', () => {
         );
 
         const accumulator: SummmryPassAcumulator = [file1Pass, file2Pass];
-        const headers = [['pval1', 'beta1', 'se1', 'af1'], ['pval2', 'beta2', 'se2', 'af2']];
 
-        const result = await summaryStatistics('\t', headers, accumulator, mockCallback);
+        const result = await summaryStatistics('\t', accumulator, mockCallback);
         
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
-        expect(result.header).toBe('pval1\tbeta1\tse1\taf1\tpval2\tbeta2\tse2\taf2');
+        expect(result.header).toBe('file1_pval\tfile1_beta\tfile1_sebeta\tfile1_af\tfile2_pval\tfile2_beta\tfile2_sebeta\tfile2_af');
         // Should have data from both files
         expect(result.data.length).toBeGreaterThan(0);
     });
@@ -337,13 +335,13 @@ describe('summaryStatistics', () => {
         ];
 
         const accumulator: SummmryPassAcumulator = [file1Pass, file2Pass];
-        const headers = [['pval1', 'beta1', 'se1', 'af1'], ['pval2', 'beta2', 'se2', 'af2']];
 
-        const result = await summaryStatistics('\t', headers, accumulator, mockCallback);
+        const result = await summaryStatistics('\t', accumulator, mockCallback);
         
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
-        expect(result.header).toBe('pval1\tbeta1\tse1\taf1\tpval2\tbeta2\tse2\taf2');
+        expect(result.header).toContain('f1b1_pval');
+        expect(result.header).toContain('f2b2_af');
         // Should have data from both blocks
         expect(result.data.length).toBeGreaterThan(0);
     });
@@ -376,22 +374,21 @@ describe('summaryStatistics', () => {
         ];
 
         const accumulator: SummmryPassAcumulator = [file1Pass, file2Pass];
-        const headers = [['pval1', 'beta1', 'se1', 'af1'], ['pval2', 'beta2', 'se2', 'af2']];
 
-        const result = await summaryStatistics('\t', headers, accumulator, mockCallback);
+        const result = await summaryStatistics('\t', accumulator, mockCallback);
         
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
-        expect(result.header).toBe('pval1\tbeta1\tse1\taf1\tpval2\tbeta2\tse2\taf2');
+        expect(result.header).toContain('f1b1_pval');
+        expect(result.header).toContain('f2b1_af');
         // Should have data from both blocks (uneven across files)
         expect(result.data.length).toBeGreaterThan(0);
     });
 
     it('should handle empty accumulator', async () => {
         const accumulator: SummmryPassAcumulator = [];
-        const headers: string[][] = [];
 
-        const result = await summaryStatistics('\t', headers, accumulator, mockCallback);
+        const result = await summaryStatistics('\t', accumulator, mockCallback);
         
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
@@ -423,13 +420,11 @@ describe('summaryStatistics', () => {
         );
 
         const accumulator: SummmryPassAcumulator = [filePass];
-        const headers = [['pval', 'beta', 'se', 'af']];
 
-        const result = await summaryStatistics(',', headers, accumulator, mockCallback);
-        
+        const result = await summaryStatistics(',', accumulator, mockCallback);
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
-        expect(result.header).toBe('pval,beta,se,af');
+        expect(result.header).toBe('csv_pval,csv_beta,csv_sebeta,csv_af');
         expect(result.data.includes(',')).toBe(true);
     });
 });

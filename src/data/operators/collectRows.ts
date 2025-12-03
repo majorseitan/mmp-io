@@ -8,28 +8,28 @@ const bufferSummaryPass = (buffer: Uint8Array<ArrayBufferLike>, metadata: BlockM
 }
 
 
-const fileHeader : (tag: string) => string [] = (tag : string) => (window as any).FileHeader(tag);
+const createHeader : (tag: string) => string [] = (tag : string) => (window as any).CreateHeader(tag);
 
 export const collectRows = async (
     localFile : LocalFileConfiguration,
     acumulator: SummmryPassAcumulator,
-    partitions: VariantPartitions,    
+    partitions: VariantPartitions,
     pipelineConfig: PipelineConfiguration,
     setCallBack: StepCallBack
 ): Promise<{ headers: string[]; summaryPasses: SummmryPassAcumulator }  > => {
         setCallBack.processing()
         const generator = readFileInBlocks(localFile.file, pipelineConfig.buffersize);
         const firstResult = await generator.next();
-        const headers = fileHeader(localFile.tag);
-        
-        if (firstResult.done) { 
+        const headers = createHeader(localFile.tag);
+
+        if (firstResult.done) {
             setCallBack.success();
             return { headers, summaryPasses:  acumulator };
         }
 
         const { chunk: header } = firstResult.value;
         const metadata : BlockMetadata = createFileColumnsIndex(localFile, header);
-    
+
         // Now loop through the remaining rows
         for await (const { chunk: row } of generator) {
             const pass = bufferSummaryPass(row, metadata, partitions);

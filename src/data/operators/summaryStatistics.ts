@@ -6,10 +6,14 @@ const summaryBytesWithIndex = (summaryPass : SummaryPass, delimiter : string) : 
     return result.join("\n");
 }
 
+const HeaderBytesString = (delimiter : string) => (summaryPass : SummaryPass) : string => {
+    const result : string = (window as any).HeaderBytesString(summaryPass, delimiter);
+    return result;
+}
+
 
 export const summaryStatistics = async (
     delimiter: string,
-    headers : string[][],
     acumulator: SummmryPassAcumulator,
     setCallBack: StepCallBack
 ): Promise<DelimitedText> => {
@@ -35,7 +39,7 @@ export const summaryStatistics = async (
     }
     
     // Build header line from all files
-    const header = headers.map(fileHeader => fileHeader.join(delimiter)).join(delimiter);
+    const header = acumulator.map(HeaderBytesString(delimiter)).join(delimiter);
     
     setCallBack.success();
     return { header, data: allData.join("\n") };

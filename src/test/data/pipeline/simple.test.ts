@@ -42,6 +42,7 @@ describe('simplePpipeline', () => {
 
         const result = await simplePpipeline(localFile, pipelineConfig, callback);
 
+        console.log(result);
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
         // Header is produced by FileHeader and may be file-specific; ensure it's present

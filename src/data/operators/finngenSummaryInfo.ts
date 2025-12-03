@@ -1,4 +1,4 @@
-import type { FinngenRequest, FinngenSummaryInfoResponse, FinngenSummaryInfo, StepCallBack } from "../model";
+import type { FinngenRequest, FinngenSummaryInfo, FinngenSummaryInfoResponse, StepCallBack } from "../model";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://mmp.finngen.fi";
 

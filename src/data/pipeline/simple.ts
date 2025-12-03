@@ -1,7 +1,6 @@
-import { readFileInBlocks } from "../fileReader";
-import { toGoFileColumnsDefinition, type BlockMetadata, type GoFileColumnsDefinition, type LocalFileConfiguration , type PipelineConfiguration, type StepCallBack, type VariantPartitions, type SummmryPassAcumulator, type DelimitedText } from "../model";
-import { collectVariants } from "../operators/collectVariants";
+import { type DelimitedText, type LocalFileConfiguration, type PipelineConfiguration, type StepCallBack, type SummmryPassAcumulator, type VariantPartitions } from "../model";
 import { collectRows } from "../operators/collectRows";
+import { collectVariants } from "../operators/collectVariants";
 import { summaryStatistics } from "../operators/summaryStatistics";
 export const simplePpipeline = async (
     localFile: LocalFileConfiguration,

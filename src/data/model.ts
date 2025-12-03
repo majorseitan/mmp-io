@@ -60,7 +60,8 @@ export type FinngenSummaryInfo = {
   headers : string[];
 };
 
-export type FinngenResponse<T> = T | { error : string }
+export type OperationError = { error : string }
+export type FinngenResponse<T> = T | OperationError
 
 export type FinngenSummaryInfoResponse = FinngenResponse<FinngenSummaryInfo>;
 export type FinngenSummaryDataResponse = FinngenResponse<SummaryPass>;

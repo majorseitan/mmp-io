@@ -1,28 +1,5 @@
 import { describe, it, expect } from 'vitest';
-
-// Import the function - we'll need to export it or test through the module
-// For now, copying the implementation for testing
-const computePartitions = (localVariants: string[], finngenPartitions: string[][], blockSize: number): string[][] => {
-    // Create a set of all variants in finngen partitions for fast lookup
-    const finngenVariantSet = new Set<string>();
-    for (const partition of finngenPartitions) {
-        for (const variant of partition) {
-            finngenVariantSet.add(variant);
-        }
-    }
-
-    // Filter out variants that are in finngen partitions
-    const remainingVariants = localVariants.filter(v => !finngenVariantSet.has(v));
-
-    // Break remaining variants into blockSize partitions
-    const localPartitions: string[][] = [];
-    for (let i = 0; i < remainingVariants.length; i += blockSize) {
-        localPartitions.push(remainingVariants.slice(i, i + blockSize));
-    }
-
-    // Return finngen partitions followed by local partitions
-    return [...finngenPartitions, ...localPartitions];
-};
+import { computePartitions } from '../../../data/pipeline/utility';
 
 describe('computePartitions', () => {
     it('should return only finngen partitions when all local variants are in finngen', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { finngenSummaryInfo } from '../../../data/operators/finngenSummaryInfo';
-import type { FinngenSummaryInfoResponse, MMPRequest, MMPSummaryStatistic } from '../../../data/model';
+import type { FinngenSummaryInfoResponse, MMPRequest, FinngenSummaryStatistic } from '../../../data/model';
 import { setupTestFetch } from '../../nodeFetchFallback';
 import { validFinngenRequest, expectedHeaders, createSimpleCallbacks } from '../../finngenTestFixtures';
 
@@ -56,7 +56,7 @@ describe('finngenSummaryInfo (real fetch)', () => {
             pval_threshold: 0.00001,
             collection: 'invalid_collection',
             phenocode: 'DOES_NOT_EXIST_999999',
-          } as MMPSummaryStatistic,
+          } as FinngenSummaryStatistic,
         ],
         variants: [],
       };

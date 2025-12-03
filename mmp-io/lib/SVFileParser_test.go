@@ -1791,7 +1791,7 @@ func TestSummaryBytesString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := SummaryBytesString(tt.buffer, tt.delimiter)
+			result, err := SummaryBytesString(tt.buffer, tt.delimiter, false)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("SummaryBytesString() expected error, got none")
@@ -1836,7 +1836,6 @@ func TestSummaryBytesString(t *testing.T) {
 		})
 	}
 }
-
 
 func TestCreateHeader(t *testing.T) {
 	tests := []struct {
@@ -2119,7 +2118,7 @@ func TestSummaryBytesStringWithMissingValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buffer := tt.setup()
-			result, err := SummaryBytesString(buffer, tt.delimiter)
+			result, err := SummaryBytesString(buffer, tt.delimiter, false)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("SummaryBytesString() expected error, got none")
@@ -2134,6 +2133,465 @@ func TestSummaryBytesStringWithMissingValues(t *testing.T) {
 
 			if tt.validate != nil {
 				tt.validate(t, result)
+			}
+		})
+	}
+}
+
+func TestVariantCPRA(t *testing.T) {
+	tests := []struct {
+		name      string
+		variant   string
+		delimiter string
+		expected  []string
+	}{
+		{
+			name:      "tab delimiter",
+			variant:   "1\t12345\tA\tT",
+			delimiter: "\t",
+			expected:  []string{"1", "12345", "A", "T"},
+		},
+		{
+			name:      "comma delimiter",
+			variant:   "23,98765,G,C",
+			delimiter: ",",
+			expected:  []string{"23", "98765", "G", "C"},
+		},
+		{
+			name:      "chromosome X",
+			variant:   "23\t100\tA\tT",
+			delimiter: "\t",
+			expected:  []string{"23", "100", "A", "T"},
+		},
+		{
+			name:      "single character alleles",
+			variant:   "1\t1000\tC\tG",
+			delimiter: "\t",
+			expected:  []string{"1", "1000", "C", "G"},
+		},
+		{
+			name:      "multi-character insertion",
+			variant:   "5\t2000\tA\tATCG",
+			delimiter: "\t",
+			expected:  []string{"5", "2000", "A", "ATCG"},
+		},
+		{
+			name:      "multi-character deletion",
+			variant:   "7\t3000\tGCTA\tG",
+			delimiter: "\t",
+			expected:  []string{"7", "3000", "GCTA", "G"},
+		},
+		{
+			name:      "pipe delimiter",
+			variant:   "12|5500|T|A",
+			delimiter: "|",
+			expected:  []string{"12", "5500", "T", "A"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := variantCPRA(tt.variant, tt.delimiter)
+			if len(result) != len(tt.expected) {
+				t.Fatalf("variantCPRA() length = %d, want %d", len(result), len(tt.expected))
+			}
+			for i, exp := range tt.expected {
+				if result[i] != exp {
+					t.Errorf("variantCPRA()[%d] = %q, want %q", i, result[i], exp)
+				}
+			}
+		})
+	}
+}
+
+func TestSummaryBytesStringWithCPRA(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func() [][]byte
+		delimiter string
+		cpra      bool
+		validate  func(t *testing.T, result []string)
+		wantErr   bool
+	}{
+		{
+			name: "single variant with CPRA prepended",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta", "af"},
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: "\t",
+			cpra:      true,
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 result, got %d", len(result))
+				}
+				// Should start with C\tP\tR\tA\t followed by values
+				expected := "1\t12345\tA\tT\t1.000000e-03\t0.500000\t0.100000\t0.300000"
+				if result[0] != expected {
+					t.Errorf("result = %q, want %q", result[0], expected)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "single variant without CPRA",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta", "af"},
+					Rows: map[string]*SummaryValues{
+						"1\t12345\tA\tT": {Values: []string{"1.000000e-03", "0.500000", "0.100000", "0.300000"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: "\t",
+			cpra:      false,
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 result, got %d", len(result))
+				}
+				// Should NOT start with C\tP\tR\tA\t
+				expected := "1.000000e-03\t0.500000\t0.100000\t0.300000"
+				if result[0] != expected {
+					t.Errorf("result = %q, want %q", result[0], expected)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple variants with CPRA",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT":  {Values: []string{"0.001", "0.5"}},
+						"2\t200\tG\tC":  {Values: []string{"0.002", "0.6"}},
+						"23\t300\tC\tG": {Values: []string{"0.003", "0.7"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: "\t",
+			cpra:      true,
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 3 {
+					t.Fatalf("expected 3 results, got %d", len(result))
+				}
+				// Each line should contain CPRA fields
+				for _, line := range result {
+					parts := strings.Split(line, "\t")
+					if len(parts) < 6 { // 4 CPRA + 2 values
+						t.Errorf("line has %d fields, expected at least 6: %q", len(parts), line)
+					}
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple partitions with CPRA",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.003", "0.7"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter: "\t",
+			cpra:      true,
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 result, got %d", len(result))
+				}
+				// CPRA + s1 values + s2 values
+				expected := "1\t100\tA\tT\t0.001\t0.5\t0.003\t0.7"
+				if result[0] != expected {
+					t.Errorf("result = %q, want %q", result[0], expected)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "CPRA with missing values in partition",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta"},
+					Rows:   map[string]*SummaryValues{
+						// Variant missing in second partition
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter: "\t",
+			cpra:      true,
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 result, got %d", len(result))
+				}
+				// CPRA + s1 values + NA for s2
+				expected := "1\t100\tA\tT\t0.001\t0.5\tNA\tNA"
+				if result[0] != expected {
+					t.Errorf("result = %q, want %q", result[0], expected)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "comma delimiter with CPRA",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta"},
+					Rows: map[string]*SummaryValues{
+						"1,12345,A,T": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter: ",",
+			cpra:      true,
+			validate: func(t *testing.T, result []string) {
+				if len(result) != 1 {
+					t.Fatalf("expected 1 result, got %d", len(result))
+				}
+				expected := "1,12345,A,T,0.001,0.5"
+				if result[0] != expected {
+					t.Errorf("result = %q, want %q", result[0], expected)
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buffer := tt.setup()
+			result, err := SummaryBytesString(buffer, tt.delimiter, tt.cpra)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("SummaryBytesString() expected error, got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("SummaryBytesString() unexpected error: %v", err)
+				return
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, result)
+			}
+		})
+	}
+}
+
+func TestSummaryBytesStringTotalValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func() [][]byte
+		delimiter   string
+		cpra        bool
+		expectedLen int // Expected number of fields per line
+		wantErr     bool
+	}{
+		{
+			name: "single partition - verify totalValues calculation",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta", "af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter:   "\t",
+			cpra:        false,
+			expectedLen: 4, // 4 values
+			wantErr:     false,
+		},
+		{
+			name: "single partition with CPRA - verify totalValues + 4",
+			setup: func() [][]byte {
+				rows := &SummaryRows{
+					Header: []string{"pval", "beta", "sebeta", "af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1", "0.3"}},
+					},
+				}
+				data, _ := proto.Marshal(rows)
+				return [][]byte{data}
+			},
+			delimiter:   "\t",
+			cpra:        true,
+			expectedLen: 8, // 4 CPRA + 4 values
+			wantErr:     false,
+		},
+		{
+			name: "two partitions - verify totalValues calculation",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta", "s1_sebeta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.002", "0.6"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter:   "\t",
+			cpra:        false,
+			expectedLen: 5, // 3 from s1 + 2 from s2
+			wantErr:     false,
+		},
+		{
+			name: "two partitions with CPRA - verify totalValues + 4",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta", "s1_sebeta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5", "0.1"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.002", "0.6"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				return [][]byte{data1, data2}
+			},
+			delimiter:   "\t",
+			cpra:        true,
+			expectedLen: 9, // 4 CPRA + 3 from s1 + 2 from s2
+			wantErr:     false,
+		},
+		{
+			name: "three partitions with varying header lengths",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta", "s2_sebeta", "s2_af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.002", "0.6", "0.2", "0.3"}},
+					},
+				}
+				rows3 := &SummaryRows{
+					Header: []string{"s3_pval"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.003"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				data3, _ := proto.Marshal(rows3)
+				return [][]byte{data1, data2, data3}
+			},
+			delimiter:   "\t",
+			cpra:        false,
+			expectedLen: 7, // 2 + 4 + 1
+			wantErr:     false,
+		},
+		{
+			name: "three partitions with CPRA and varying header lengths",
+			setup: func() [][]byte {
+				rows1 := &SummaryRows{
+					Header: []string{"s1_pval", "s1_beta"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.001", "0.5"}},
+					},
+				}
+				rows2 := &SummaryRows{
+					Header: []string{"s2_pval", "s2_beta", "s2_sebeta", "s2_af"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.002", "0.6", "0.2", "0.3"}},
+					},
+				}
+				rows3 := &SummaryRows{
+					Header: []string{"s3_pval"},
+					Rows: map[string]*SummaryValues{
+						"1\t100\tA\tT": {Values: []string{"0.003"}},
+					},
+				}
+				data1, _ := proto.Marshal(rows1)
+				data2, _ := proto.Marshal(rows2)
+				data3, _ := proto.Marshal(rows3)
+				return [][]byte{data1, data2, data3}
+			},
+			delimiter:   "\t",
+			cpra:        true,
+			expectedLen: 11, // 4 CPRA + 2 + 4 + 1
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buffer := tt.setup()
+			result, err := SummaryBytesString(buffer, tt.delimiter, tt.cpra)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("SummaryBytesString() expected error, got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("SummaryBytesString() unexpected error: %v", err)
+				return
+			}
+
+			if len(result) == 0 {
+				t.Fatal("SummaryBytesString() returned empty result")
+			}
+
+			// Verify field count matches expected
+			for i, line := range result {
+				fields := strings.Split(line, tt.delimiter)
+				if len(fields) != tt.expectedLen {
+					t.Errorf("result[%d] has %d fields, expected %d: %q", i, len(fields), tt.expectedLen, line)
+				}
 			}
 		})
 	}

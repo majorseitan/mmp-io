@@ -32,7 +32,7 @@ func main() {
 		lib.SummaryBytesString,
 		lib.HeaderBytesString,
 		lib.CreateHeader,
-		lib.HeaderBytesString,
+		lib.FileHeader,
 	})
 	// Keep the program running indefinitely to serve WASM function calls
 	select {}

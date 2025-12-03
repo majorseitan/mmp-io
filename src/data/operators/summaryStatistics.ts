@@ -1,9 +1,9 @@
 import type { DelimitedText, StepCallBack, SummaryPass, SummmryPassAcumulator } from "../model";
 
 
-const summaryBytesWithIndex = (summaryPass : SummaryPass, delimiter : string) : string => {
-    const result : string[] = (window as any).SummaryBytesString(summaryPass, delimiter);
-    return result.join("\n");
+const summaryBytesWithIndex = (summaryPass : SummaryPass, delimiter : string) : string[] => {
+    const result : string[] = (window as any).SummaryBytesString(summaryPass, delimiter, false);
+    return result;
 }
 
 const HeaderBytesString = (delimiter : string) => (summaryPass : SummaryPass) : string => {
@@ -33,9 +33,9 @@ export const summaryStatistics = async (
             }
         }
         
-        // Process the blocks and get result
-        const data = summaryBytesWithIndex(blocksAcrossFiles, delimiter);
-        allData.push(data);
+        // Process the blocks and get result (array of rows for this block across all files)
+        const blockData = summaryBytesWithIndex(blocksAcrossFiles, delimiter);
+        allData.push(...blockData);
     }
     
     // Build header line from all files

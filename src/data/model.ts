@@ -4,6 +4,7 @@ type SucessCallback<S> = (success: S) => void;
 
 export type PipelineConfiguration = {
   buffersize: number;
+  blocksize: number;
 };
 
 export type StepCallBack<P = void, E = void, S = void> = {
@@ -69,25 +70,15 @@ export type FinngenDataRequest = {
     block_indices?: number[];
 };
 
-export type MMPBase = {
-  tag: string
-  pval_threshold: number
-} & FileColumnsDefinition;
 
-export type MMPSummaryStatistic =  MMPBase & {
-  collection: string
-  phenocode: string
-  phenostring: string
-}
+export type FinngenSummaryStatistic =  FinngenFileConfiguration & {  phenostring: string }
 
-export type MMPFileUpload = MMPBase & {
-  fileId: string
-}
+export type FinngenFileUpload = FileConfiguration & {  fileId: string }
 
-export type MMPFileArtifact = MMPSummaryStatistic | MMPFileUpload;
+export type FinngenFileArtifact = FinngenSummaryStatistic | FinngenFileUpload;
 
-export interface MMPRequest {
-  inputs : MMPFileArtifact[]
+export interface FinngenRequest {
+  inputs : FinngenFileArtifact[]
   variants: string[]
   block_size?: number
 }
@@ -95,11 +86,7 @@ export interface MMPRequest {
 export type DelimitedText = { header : string , data : string };
 
 
-export type BlockMetadata = FileColumnsIndex & {
-  tag: string;
-  pval_threshold: number;
-  delimiter: string;
-};
+export type BlockMetadata = FileConfiguration & {  delimiter: string; };
 
 
 // what is an intutive name for these types

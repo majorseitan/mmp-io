@@ -1,16 +1,16 @@
-import type { MMPRequest, FinngenSummaryInfoResponse, FinngenSummaryInfo, StepCallBack } from "../model";
+import type { FinngenRequest, FinngenSummaryInfoResponse, FinngenSummaryInfo, StepCallBack } from "../model";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://mmp.finngen.fi";
 
 
 
 export const finngenSummaryInfo = async (
-    request: MMPRequest,
+    request: FinngenRequest,
     setCallBack: StepCallBack<void,string,void>
 ): Promise<FinngenSummaryInfoResponse> => {
     setCallBack.processing();
     // POST /api/jobs (or provided endpoint) to create a job and poll until completion
-    const postCreateJob = async (req: MMPRequest): Promise<{ url: string; file_id: string }> => {
+    const postCreateJob = async (req: FinngenRequest): Promise<{ url: string; file_id: string }> => {
         console.log("Creating job with request:", req);
         console.log("Creating blocksize:", req.block_size);
         const response = await fetch(`${API_BASE}/api/jobs`, {

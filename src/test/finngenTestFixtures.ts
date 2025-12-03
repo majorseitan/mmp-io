@@ -1,4 +1,4 @@
-import type { MMPRequest, MMPSummaryStatistic } from '../data/model';
+import type { MMPRequest, FinngenSummaryStatistic } from '../data/model';
 
 /**
  * Shared test fixtures for Finngen API tests
@@ -21,7 +21,7 @@ export const validFinngenRequest: MMPRequest = {
       sebetaColumn: 'sebeta',
       afColumn: 'af_alt',
       pval_threshold: 0.00001,
-    } as MMPSummaryStatistic,
+    } as FinngenSummaryStatistic,
   ],
   variants: [],
   block_size: 10,

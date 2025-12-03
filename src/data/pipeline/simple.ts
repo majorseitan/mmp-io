@@ -18,7 +18,7 @@ export const simplePpipeline = async (
 
     // 2) collect rows -> returns headers and accumulated SummaryPasses
     const acumulator: SummmryPassAcumulator = [];
-    const { headers, summaryPasses } = await collectRows(localFile, acumulator, partitions, pipelineConfig, setCallBack);
+    const summaryPasses = await collectRows(localFile, acumulator, partitions, pipelineConfig, setCallBack);
 
     // 3) call summaryStatistics
     const result = await summaryStatistics(localFile.delimiter, summaryPasses, setCallBack);

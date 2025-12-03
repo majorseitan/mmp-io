@@ -119,6 +119,10 @@ func variantKey(variant *Variant, delimiter string) string {
 	return b.String()
 }
 
+func variantCPRA(variant string, delimiter string) []string {
+	return strings.Split(variant, delimiter)
+}
+
 func unmarshalSummaryRows(data [][]byte) ([]*SummaryRows, error) {
 	result := make([]*SummaryRows, len(data))
 	for i, blockBytes := range data {
@@ -151,6 +155,11 @@ func CreateHeader(tag string) []string {
 		fmt.Sprintf("%s_sebeta", tag),
 		fmt.Sprintf("%s_af", tag),
 	}
+}
+
+// FileHeader is an alias for CreateHeader for backwards compatibility
+func FileHeader(tag string) []string {
+	return CreateHeader(tag)
 }
 
 func BufferSummaryPasses(buffer []byte, metadata BlockMetadata, partitions VariantPartitions) ([][]byte, error) {
@@ -288,7 +297,7 @@ func HeaderBytesString(buffer [][]byte, delimiter string) (string, error) {
 	return strings.Join(result, delimiter), nil
 }
 
-func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
+func SummaryBytesString(buffer [][]byte, delimiter string, cpra bool) ([]string, error) {
 	rows, err := unmarshalSummaryRows(buffer)
 	if err != nil {
 		return nil, err
@@ -325,6 +334,10 @@ func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
 
 	for i, variant := range variants {
 		values := make([]string, 0, totalValues)
+		if cpra {
+			cpraFields := variantCPRA(variant, delimiter)
+			values = append(values, cpraFields...)
+		}
 		for j := range rows {
 			if summaryValues, ok := rows[j].Rows[variant]; ok {
 				// Collect all values from this partition for this variant
@@ -340,9 +353,4 @@ func SummaryBytesString(buffer [][]byte, delimiter string) ([]string, error) {
 	}
 
 	return result, nil
-}
-
-// FileHeader is an alias for CreateHeader for backwards compatibility
-func FileHeader(tag string) []string {
-	return CreateHeader(tag)
 }

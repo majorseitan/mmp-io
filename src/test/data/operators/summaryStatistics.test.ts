@@ -171,14 +171,14 @@ describe('summaryBytesWithIndex', () => {
         expect(result.length).toBe(0);
     });
 
-    it('should return error for invalid protobuf data', () => {
+    it('should throw error for invalid protobuf data', () => {
         // Create invalid SummaryPass with non-protobuf data
         const invalidPass: SummaryPass = [new Uint8Array([1, 2, 3, 4, 5])];
 
-        const result = summaryBytesWithIndex(invalidPass, '\t') as any;
-        
-        // Go WASM bridge returns error as {error: string}
-        expect(result).toHaveProperty('error');
+        // With error handling, this should now throw an Error
+        expect(() => {
+            summaryBytesWithIndex(invalidPass, '\t');
+        }).toThrow('SummaryBytesString error');
     });
 
     it('should preserve scientific notation for p-values', () => {

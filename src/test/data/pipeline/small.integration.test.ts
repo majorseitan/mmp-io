@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { wasmReady } from '../../../data/wasm';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { wasmReady, reloadWasm } from '../../../data/wasm';
 import { smallPpipeline } from '../../../data/pipeline/small';
 import type { LocalFileConfiguration, PipelineConfiguration, StepCallBack, FinngenFileArtifact } from '../../../data/model';
 import { validFinngenRequest } from '../../finngenTestFixtures';
@@ -8,6 +8,11 @@ import { setupTestFetch } from '../../nodeFetchFallback';
 describe('smallPpipeline (integration with real FinnGen API)', () => {
     beforeAll(async () => {
         await wasmReady;
+    });
+
+    // Reload WASM before each test to ensure clean state
+    beforeEach(async () => {
+        await reloadWasm();
     });
 
     // Slow tests are skipped by default. Set `RUN_SLOW_TESTS=1` to enable.

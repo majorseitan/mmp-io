@@ -2,7 +2,18 @@ import type { DelimitedText, StepCallBack, SummaryPass, SummmryPassAcumulator } 
 
 
 export const summaryBytesWithIndex = (summaryPass : SummaryPass, delimiter : string, cpra: boolean = false) : string[] => {
-    const result : string[] = (window as any).SummaryBytesString(summaryPass, delimiter, cpra);
+    const result = (window as any).SummaryBytesString(summaryPass, delimiter, cpra);
+    
+    // Handle error response from Go WASM
+    if (result && typeof result === 'object' && 'error' in result) {
+        throw new Error(`SummaryBytesString error: ${result.error}`);
+    }
+    
+    // Ensure result is an array
+    if (!Array.isArray(result)) {
+        throw new Error(`SummaryBytesString returned non-array: ${typeof result}`);
+    }
+    
     return result;
 }
 
@@ -29,7 +40,7 @@ export const summaryStatistics = async (
     setCallBack.processing()
 
     // Find the maximum number of blocks across all files
-    const maxBlocks = Math.max(...acumulator.map(pass => pass.length));
+    const maxBlocks = acumulator.reduce((max, pass) => Math.max(max, pass.length), 0);
     
     // Pad all passes to have the same number of blocks
     // This ensures that SummaryBytesString always sees all sources (with NA for missing data)
@@ -54,7 +65,9 @@ export const summaryStatistics = async (
         
         // Process the blocks and get result (array of rows for this block across all files)
         const blockData = summaryBytesWithIndex(blocksAcrossFiles, delimiter, cpra);
-        allData.push(...blockData);
+        for (const row of blockData) {
+            allData.push(row);
+        }
     }
     
     // Build header line from first block of each pass (not all blocks)

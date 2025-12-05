@@ -40,7 +40,10 @@ export const collectVariants = async (
     // Now loop through the remaining rows
     for await (const { chunk: row } of generator) {
         const variants = bufferVariants(row, metadata);
-        result.push(...variants);
+        // Use concat or loop instead of spread operator to avoid stack overflow with large arrays
+        for (const variant of variants) {
+            result.push(variant);
+        }
     }
     setCallBack.success();
     return result;

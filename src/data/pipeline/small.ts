@@ -17,7 +17,7 @@ export const smallPpipeline = async (
     const variants = await collectVariants(localFile, pipelineConfig, setCallBack);
 
     const finngenRequest : FinngenRequest = {
-        inputs,
+        inputs: inputs,
         variants,
         block_size: pipelineConfig.blocksize
     };

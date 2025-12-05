@@ -83,3 +83,12 @@ if (!env.hasProperIsolation) {
 }
 
 export const wasmReady = initWasm();
+
+/**
+ * Force reload WASM by clearing the cached promise and reinitializing
+ * Useful for tests that need a clean WASM state
+ */
+export const reloadWasm = async () => {
+    wasmReadyPromise = null;
+    return initWasm();
+};

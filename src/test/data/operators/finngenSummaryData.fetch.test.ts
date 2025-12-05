@@ -3,7 +3,7 @@ import { finngenSummaryInfo } from '../../../data/operators/finngenSummaryInfo';
 import { finngenSummaryData } from '../../../data/operators/finngenSummaryData';
 import type { FinngenSummaryInfoResponse, FinngenDataRequest, FinngenSummaryDataResponse } from '../../../data/model';
 import { setupTestFetch } from '../../nodeFetchFallback';
-import { SummaryFile, SummaryRows } from '../../../model/summaryfile';
+import { SummaryFile, SummaryRows } from '../../../data/protobuf/summaryfile';
 import { validFinngenRequest, createLoggingCallbacks } from '../../finngenTestFixtures';
 
 describe('finngenSummaryData (real fetch)', () => {

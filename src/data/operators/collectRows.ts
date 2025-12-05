@@ -35,7 +35,9 @@ export const collectRows = async (
         // Now loop through the remaining rows
         for await (const { chunk: row } of generator) {
             const pass = bufferSummaryPass(row, metadata, partitions);
-            localPass.push(...pass);
+            for (const item of pass) {
+                localPass.push(item);
+            }
         }
         
         // Add the complete local file pass to the accumulator

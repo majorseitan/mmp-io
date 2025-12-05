@@ -6,8 +6,25 @@ import { smallPpipeline } from "../../../data/pipeline/small";
 import { setupTestFetch } from "../../../test/nodeFetchFallback";
 import { loadWasm } from "../../wasmLoader";
 
+// Local type for config file parsing (before normalization)
+type ConfigFile = {
+    key?: string;
+    collection?: string;
+    phenostring?: string;
+    phenocode?: string;
+    chromosomeColumn?: string;
+    positionColumn?: string;
+    referenceColumn?: string;
+    alternativeColumn?: string;
+    pValueColumn?: string;
+    betaColumn?: string;
+    sebetaColumn?: string;
+    afColumn?: string;
+    pval_threshold?: number;
+};
+
 interface Config {
-    finngenFiles: FinngenFileArtifact[];
+    finngenFiles: ConfigFile[];
     pipelineConfig?: PipelineConfiguration;
     localFileConfig?: {
         chromosomeColumn?: string;
@@ -54,6 +71,25 @@ Local TSV file format:
 Example:
   tsx cli.harness.ts --config test.1.config my-gwas.tsv --output result.tsv
     `);
+}
+
+function normalizeFinngenFile(file: ConfigFile): FinngenFileArtifact {
+    // FinnGen files use standard column names
+    return {
+        tag: file.key || file.phenocode || 'finngen',
+        collection: file.collection || 'public-metaresults-fg-ukbb',
+        phenocode: file.phenocode || file.key || '',
+        phenostring: file.phenostring || file.phenocode || file.key || '',
+        chromosomeColumn: file.chromosomeColumn || '#chrom',
+        positionColumn: file.positionColumn || 'pos',
+        referenceColumn: file.referenceColumn || 'ref',
+        alternativeColumn: file.alternativeColumn || 'alt',
+        pValueColumn: file.pValueColumn || 'pval',
+        betaColumn: file.betaColumn || 'beta',
+        sebetaColumn: file.sebetaColumn || 'sebeta',
+        afColumn: file.afColumn || 'af_alt',
+        pval_threshold: file.pval_threshold || 0.05
+    } as FinngenFileArtifact;
 }
 
 async function parseLocalFile(filepath: string, fileConfig?: Config['localFileConfig']): Promise<LocalFileConfiguration> {
@@ -133,7 +169,10 @@ async function main() {
         process.exit(1);
     }
     
-    console.log(`Found ${config.finngenFiles.length} FinnGen file(s) in config`);
+    // Normalize FinnGen files with default column values
+    const finngenFiles = config.finngenFiles.map(normalizeFinngenFile);
+    
+    console.log(`Found ${finngenFiles.length} FinnGen file(s) in config`);
     
     // Parse local files
     console.log(`\nParsing ${localFilePaths.length} local file(s)...`);
@@ -153,7 +192,7 @@ async function main() {
     // Setup pipeline config
     const pipelineConfig: PipelineConfiguration = config.pipelineConfig || {
         buffersize: 1024 * 1024,
-        blocksize: 1024
+        blocksize: 1024 * 1024
     };
     
     const callback: StepCallBack = {
@@ -182,7 +221,7 @@ async function main() {
         
         const result = await smallPpipeline(
             localFile,
-            config.finngenFiles,
+            finngenFiles,
             pipelineConfig,
             callback
         );

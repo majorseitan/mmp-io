@@ -1,26 +1,47 @@
 import type { DelimitedText, StepCallBack, SummaryPass, SummmryPassAcumulator } from "../model";
 
 
-const summaryBytesWithIndex = (summaryPass : SummaryPass, delimiter : string) : string[] => {
-    const result : string[] = (window as any).SummaryBytesString(summaryPass, delimiter, false);
+export const summaryBytesWithIndex = (summaryPass : SummaryPass, delimiter : string, cpra: boolean = false) : string[] => {
+    const result : string[] = (window as any).SummaryBytesString(summaryPass, delimiter, cpra);
     return result;
 }
 
-const HeaderBytesString = (delimiter : string) => (summaryPass : SummaryPass) : string => {
-    const result : string = (window as any).HeaderBytesString(summaryPass, delimiter);
+const headerBytesString = (summaryPass: SummaryPass, delimiter: string, cpra: boolean): string => {
+    const result: string = (window as any).HeaderBytesString(summaryPass, delimiter, cpra);
     return result;
 }
 
+/**
+ * Creates an empty protobuf block with the same header as a reference block
+ * This is used to pad passes when they have different numbers of blocks
+ */
+const createEmptyBlock = (referenceBlock: Uint8Array): Uint8Array => {
+    const result: Uint8Array = (window as any).CreateEmptyBlock(referenceBlock);
+    return result;
+}
 
 export const summaryStatistics = async (
     delimiter: string,
     acumulator: SummmryPassAcumulator,
-    setCallBack: StepCallBack
+    setCallBack: StepCallBack,
+    cpra: boolean = true
 ): Promise<DelimitedText> => {
     setCallBack.processing()
 
     // Find the maximum number of blocks across all files
     const maxBlocks = Math.max(...acumulator.map(pass => pass.length));
+    
+    // Pad all passes to have the same number of blocks
+    // This ensures that SummaryBytesString always sees all sources (with NA for missing data)
+    for (const pass of acumulator) {
+        if (pass.length > 0) {
+            // Use the first block as reference for creating empty blocks
+            const referenceBlock = pass[0];
+            while (pass.length < maxBlocks) {
+                pass.push(createEmptyBlock(referenceBlock));
+            }
+        }
+    }
     
     // Process each block index across all files
     const allData: string[] = [];
@@ -28,18 +49,19 @@ export const summaryStatistics = async (
         // Collect the nth block from each file
         const blocksAcrossFiles: SummaryPass = [];
         for (const filePass of acumulator) {
-            if (blockIndex < filePass.length) {
-                blocksAcrossFiles.push(filePass[blockIndex]);
-            }
+            blocksAcrossFiles.push(filePass[blockIndex]);
         }
         
         // Process the blocks and get result (array of rows for this block across all files)
-        const blockData = summaryBytesWithIndex(blocksAcrossFiles, delimiter);
+        const blockData = summaryBytesWithIndex(blocksAcrossFiles, delimiter, cpra);
         allData.push(...blockData);
     }
     
-    // Build header line from all files
-    const header = acumulator.map(HeaderBytesString(delimiter)).join(delimiter);
+    // Build header line from first block of each pass (not all blocks)
+    const headerPasses: SummaryPass = acumulator
+        .filter(pass => pass.length > 0)
+        .map(pass => pass[0]); // Take only first block from each pass
+    const header = headerBytesString(headerPasses, delimiter, cpra);
     
     setCallBack.success();
     return { header, data: allData.join("\n") };

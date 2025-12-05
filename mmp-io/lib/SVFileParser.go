@@ -157,9 +157,28 @@ func CreateHeader(tag string) []string {
 	}
 }
 
-// FileHeader is an alias for CreateHeader for backwards compatibility
-func FileHeader(tag string) []string {
-	return CreateHeader(tag)
+// CreateEmptyBlock creates an empty SummaryRows block with the same header as the reference block
+// This is used to pad passes when different sources have different numbers of blocks
+func CreateEmptyBlock(referenceBlock []byte) ([]byte, error) {
+	// Unmarshal the reference block to get its header
+	reference := &SummaryRows{}
+	if err := proto.Unmarshal(referenceBlock, reference); err != nil {
+		return nil, fmt.Errorf("unmarshal reference block: %w", err)
+	}
+
+	// Create an empty block with the same header but no rows
+	emptyBlock := &SummaryRows{
+		Header: reference.Header,
+		Rows:   make(map[string]*SummaryValues),
+	}
+
+	// Marshal and return
+	result, err := proto.Marshal(emptyBlock)
+	if err != nil {
+		return nil, fmt.Errorf("marshal empty block: %w", err)
+	}
+
+	return result, nil
 }
 
 func BufferSummaryPasses(buffer []byte, metadata BlockMetadata, partitions VariantPartitions) ([][]byte, error) {
@@ -175,6 +194,12 @@ func BufferSummaryPasses(buffer []byte, metadata BlockMetadata, partitions Varia
 		}
 		result[i].Rows = make(map[string]*SummaryValues)
 		result[i].Header = CreateHeader(metadata.Tag)
+
+		// Pre-populate all variants in this partition with nil values
+		// This ensures they exist in the map even if not found in the buffer
+		for _, variant := range group {
+			result[i].Rows[variant] = nil
+		}
 	}
 
 	requiredLen := max(metadata.FileColumnsIndex.ColumnChromosome, metadata.FileColumnsIndex.ColumnPosition,
@@ -277,7 +302,7 @@ func BufferVariants(buffer []byte, metadata BlockMetadata) ([]string, error) {
 	return result, nil
 }
 
-func HeaderBytesString(buffer [][]byte, delimiter string) (string, error) {
+func HeaderBytesString(buffer [][]byte, delimiter string, cpra bool) (string, error) {
 	rows, err := unmarshalSummaryRows(buffer)
 	if err != nil {
 		return "", err
@@ -285,15 +310,19 @@ func HeaderBytesString(buffer [][]byte, delimiter string) (string, error) {
 	if len(rows) == 0 {
 		return "", nil
 	}
-	// Pre-calculate total capacity
-	totalHeaders := 0
-	for i := range rows {
-		totalHeaders += len(rows[i].Header)
+
+	result := make([]string, 0)
+
+	// Add CPRA columns if requested
+	if cpra {
+		result = append(result, "chromosome", "position", "reference", "alternative")
 	}
-	result := make([]string, 0, totalHeaders)
+
+	// Add headers from all blocks
 	for i := range rows {
 		result = append(result, rows[i].Header...)
 	}
+
 	return strings.Join(result, delimiter), nil
 }
 
@@ -318,13 +347,18 @@ func SummaryBytesString(buffer [][]byte, delimiter string, cpra bool) ([]string,
 		}
 	}
 
+	for i := range rows {
+		for variant := range rows[i].Rows {
+			variantSet[variant] = true
+		}
+	}
+
 	// Convert set to slice
 	variants := make([]string, 0, len(variantSet))
 	for variant := range variantSet {
 		variants = append(variants, variant)
 	}
 
-	// Pre-calculate total values per variant for efficient allocation
 	totalValues := 0
 	for j := range rows {
 		totalValues += rowLen[j]
@@ -340,10 +374,19 @@ func SummaryBytesString(buffer [][]byte, delimiter string, cpra bool) ([]string,
 		}
 		for j := range rows {
 			if summaryValues, ok := rows[j].Rows[variant]; ok {
-				// Collect all values from this partition for this variant
-				values = append(values, summaryValues.Values...)
+				if summaryValues != nil {
+					values = append(values, summaryValues.Values...)
+					if len(summaryValues.Values) < rowLen[j] {
+						for k := len(summaryValues.Values); k < rowLen[j]; k++ {
+							values = append(values, "NA")
+						}
+					}
+				} else {
+					for k := 0; k < rowLen[j]; k++ {
+						values = append(values, "NA")
+					}
+				}
 			} else {
-				// Fill with NA for missing values
 				for k := 0; k < rowLen[j]; k++ {
 					values = append(values, "NA")
 				}

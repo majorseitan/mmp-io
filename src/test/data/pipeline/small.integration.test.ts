@@ -54,11 +54,12 @@ describe('smallPpipeline (integration with real FinnGen API)', () => {
             };
 
             let processedCalled = false;
+            let successCalled = false;
             let errorCalled = false;
 
             const callback: StepCallBack = {
                 processing: () => { processedCalled = true; },
-                success: () => {},
+                success: () => { successCalled = true; },
                 error: () => { errorCalled = true; }
             };
 
@@ -281,24 +282,17 @@ describe('smallPpipeline (integration with real FinnGen API)', () => {
                 const result = await smallPpipeline(localFile, finngenInputs, pipelineConfig, callback);
                 restoreFetch();
 
-                // Verify result structure
-                expect(result).toHaveProperty('header');
-                expect(result).toHaveProperty('data');
-                
-                // Note: Test variants (100001-100008) likely don't exist in FinnGen dataset,
-                // so API may return error. Verify we handle it gracefully.
-                if (result.header.length === 0) {
-                    // Error case - FinnGen didn't have the variants
-                    expect(result.data).toBe('');
-                } else {
-                    // Success case - verify structure
-                    expect(result.header.length).toBeGreaterThan(0);
-                    expect(result.data.length).toBeGreaterThan(0);
-                    expect(result.header).toContain('partition_test_pval');
-                    expect(result.header).toContain('labvalues_21491979_pval');
-                    const dataRows = result.data.trim().split('\n');
-                    expect(dataRows.length).toBeGreaterThan(0);
-                }
+                // Verify we got results
+                expect(result.header.length).toBeGreaterThan(0);
+                expect(result.data.length).toBeGreaterThan(0);
+
+                // Should have both local and FinnGen columns
+                expect(result.header).toContain('partition_test_pval');
+                expect(result.header).toContain('labvalues_21491979_pval');
+
+                // Verify data rows
+                const dataRows = result.data.trim().split('\n');
+                expect(dataRows.length).toBeGreaterThan(0);
             } catch (error) {
                 restoreFetch();
                 throw error;

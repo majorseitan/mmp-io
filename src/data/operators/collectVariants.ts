@@ -5,6 +5,12 @@ import { toGoFileColumnsDefinition, type BlockMetadata, type GoFileColumnsDefini
 export const createFileColumnsIndex = (localFile: LocalFileConfiguration, header: Uint8Array<ArrayBufferLike>) : BlockMetadata => {
     const config : GoFileColumnsDefinition = toGoFileColumnsDefinition(localFile);
     const result = (window as any).CreateFileColumnsIndex(header, JSON.stringify(config));
+    
+    // Handle error response from Go WASM
+    if (result && typeof result === 'object' && 'error' in result) {
+        throw new Error(`CreateFileColumnsIndex error: ${result.error}`);
+    }
+    
     const metadata = JSON.parse(result) as BlockMetadata;
     return metadata;
 }

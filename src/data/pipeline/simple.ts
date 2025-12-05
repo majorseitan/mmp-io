@@ -20,7 +20,7 @@ export const simplePpipeline = async (
     const summaryPasses = await collectRows(localFile, acumulator, partitions, pipelineConfig, setCallBack);
 
     // 3) call summaryStatistics
-    const result = await summaryStatistics(localFile.delimiter, summaryPasses, setCallBack);
+    const result = await summaryStatistics(localFile.delimiter, summaryPasses, setCallBack, false);
     setCallBack.success();
     return result;
 };

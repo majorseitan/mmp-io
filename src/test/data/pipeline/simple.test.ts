@@ -45,7 +45,6 @@ describe('simplePpipeline', () => {
         console.log(result);
         expect(result).toHaveProperty('header');
         expect(result).toHaveProperty('data');
-        // Header is produced by FileHeader and may be file-specific; ensure it's present
         expect(typeof result.header).toBe('string');
         expect(result.header).toBe("file1_pval\tfile1_beta\tfile1_sebeta\tfile1_af");
         expect(result.header.length).toBeGreaterThan(0);

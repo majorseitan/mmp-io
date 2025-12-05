@@ -1,6 +1,6 @@
 import type { FinngenDataRequest, FinngenSummaryDataResponse, StepCallBack } from "../model";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://mmp.finngen.fi";
+const API_BASE = import.meta.env?.VITE_API_BASE || "https://mmp.finngen.fi";
 
 export const finngenSummaryData = async (
     finngenRequest: FinngenDataRequest,
@@ -32,7 +32,7 @@ export const finngenSummaryData = async (
         });
 
         const blocks = await Promise.all(blockPromises);
-        
+
         setCallBack.success();
         return blocks;
     } catch (err) {
@@ -41,4 +41,3 @@ export const finngenSummaryData = async (
         return { error: message };
     }
 };
-

@@ -1,44 +1,10 @@
 #!/usr/bin/env tsx
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import type { FinngenFileArtifact, LocalFileConfiguration, PipelineConfiguration, StepCallBack } from "../../../data/model";
+import { writeFileSync } from 'node:fs';
+import type { LocalFileConfiguration, PipelineConfiguration, StepCallBack } from "../../../data/model";
 import { smallPpipeline } from "../../../data/pipeline/small";
 import { setupTestFetch } from "../../../test/nodeFetchFallback";
 import { loadWasm } from "../../wasmLoader";
-
-// Local type for config file parsing (before normalization)
-type ConfigFile = {
-    key?: string;
-    collection?: string;
-    phenostring?: string;
-    phenocode?: string;
-    chromosomeColumn?: string;
-    positionColumn?: string;
-    referenceColumn?: string;
-    alternativeColumn?: string;
-    pValueColumn?: string;
-    betaColumn?: string;
-    sebetaColumn?: string;
-    afColumn?: string;
-    pval_threshold?: number;
-};
-
-interface Config {
-    finngenFiles: ConfigFile[];
-    pipelineConfig?: PipelineConfiguration;
-    localFileConfig?: {
-        chromosomeColumn?: string;
-        positionColumn?: string;
-        referenceColumn?: string;
-        alternativeColumn?: string;
-        pValueColumn?: string;
-        betaColumn?: string;
-        sebetaColumn?: string;
-        afColumn?: string;
-        pval_threshold?: number;
-        delimiter?: string;
-    };
-}
+import { loadConfig, normalizeFinngenFile, parseArgs, parseLocalFile } from "./common";
 
 function printUsage() {
     console.log(`
@@ -73,54 +39,6 @@ Example:
     `);
 }
 
-function normalizeFinngenFile(file: ConfigFile): FinngenFileArtifact {
-    // FinnGen files use standard column names
-    return {
-        tag: file.key || file.phenocode || 'finngen',
-        collection: file.collection || 'public-metaresults-fg-ukbb',
-        phenocode: file.phenocode || file.key || '',
-        phenostring: file.phenostring || file.phenocode || file.key || '',
-        chromosomeColumn: file.chromosomeColumn || '#chrom',
-        positionColumn: file.positionColumn || 'pos',
-        referenceColumn: file.referenceColumn || 'ref',
-        alternativeColumn: file.alternativeColumn || 'alt',
-        pValueColumn: file.pValueColumn || 'pval',
-        betaColumn: file.betaColumn || 'beta',
-        sebetaColumn: file.sebetaColumn || 'sebeta',
-        afColumn: file.afColumn || 'af_alt',
-        pval_threshold: file.pval_threshold || 0.05
-    } as FinngenFileArtifact;
-}
-
-async function parseLocalFile(filepath: string, fileConfig?: Config['localFileConfig']): Promise<LocalFileConfiguration> {
-    // Use Node.js openAsBlob to create a File object without loading into memory
-    // The file will be streamed in chunks when accessed
-    const { openAsBlob } = await import('node:fs');
-    const { basename } = await import('node:path');
-    
-    // openAsBlob creates a Blob-like object backed by the file descriptor
-    // This allows streaming without loading the entire file into memory
-    const blob = await openAsBlob(filepath);
-    const file = new File([blob], basename(filepath), { 
-        type: filepath.endsWith('.gz') ? 'application/gzip' : 'text/plain'
-    });
-    
-    return {
-        tag: basename(filepath).replace(/\.(tsv|txt|gz)$/i, ''),
-        chromosomeColumn: fileConfig?.chromosomeColumn || 'CHR',
-        positionColumn: fileConfig?.positionColumn || 'POS',
-        referenceColumn: fileConfig?.referenceColumn || 'REF',
-        alternativeColumn: fileConfig?.alternativeColumn || 'ALT',
-        pValueColumn: fileConfig?.pValueColumn || 'PVAL',
-        betaColumn: fileConfig?.betaColumn || 'BETA',
-        sebetaColumn: fileConfig?.sebetaColumn || 'SE',
-        afColumn: fileConfig?.afColumn || 'AF',
-        pval_threshold: fileConfig?.pval_threshold || 0.05,
-        delimiter: fileConfig?.delimiter || '\t',
-        file
-    };
-}
-
 async function main() {
     const args = process.argv.slice(2);
     
@@ -130,21 +48,7 @@ async function main() {
     }
     
     // Parse arguments
-    let configPath: string | undefined;
-    let outputPath = '/tmp/meta-analysis-result.tsv';
-    const localFilePaths: string[] = [];
-    
-    for (let i = 0; i < args.length; i++) {
-        if (args[i] === '--config' && i + 1 < args.length) {
-            configPath = resolve(args[i + 1]);
-            i++;
-        } else if (args[i] === '--output' && i + 1 < args.length) {
-            outputPath = resolve(args[i + 1]);
-            i++;
-        } else if (!args[i].startsWith('--')) {
-            localFilePaths.push(resolve(args[i]));
-        }
-    }
+    const { configPath, outputPath, localFilePaths } = parseArgs(args);
     
     // Validate arguments
     if (!configPath) {
@@ -161,13 +65,7 @@ async function main() {
     
     // Load config
     console.log(`Loading config from: ${configPath}`);
-    const configContent = readFileSync(configPath, 'utf-8');
-    const config: Config = JSON.parse(configContent);
-    
-    if (!config.finngenFiles || !Array.isArray(config.finngenFiles)) {
-        console.error('Error: Config must contain "finngenFiles" array');
-        process.exit(1);
-    }
+    const config = loadConfig(configPath!);
     
     // Normalize FinnGen files with default column values
     const finngenFiles = config.finngenFiles.map(normalizeFinngenFile);
@@ -179,14 +77,9 @@ async function main() {
     const localFiles: LocalFileConfiguration[] = [];
     for (const filepath of localFilePaths) {
         console.log(`  - ${filepath}`);
-        try {
-            const localFile = await parseLocalFile(filepath, config.localFileConfig);
-            localFiles.push(localFile);
-            console.log(`    ✓ Parsed successfully`);
-        } catch (err) {
-            console.error(`Error parsing ${filepath}:`, err);
-            process.exit(1);
-        }
+        const localFile = await parseLocalFile(filepath, config.localFileConfig);
+        localFiles.push(localFile);
+        console.log(`    ✓ Parsed successfully`);
     }
     
     // Setup pipeline config
@@ -196,14 +89,14 @@ async function main() {
     };
     
     const callback: StepCallBack = {
-        processing: (step: string) => {
-            console.log(`Processing: ${step}`);
+        processing: () => {
+            console.log('Processing...');
         },
-        success: (step: string) => {
-            console.log(`Success: ${step}`);
+        success: () => {
+            console.log('Success');
         },
-        error: (step: string, error: string) => {
-            console.error(`Error in ${step}: ${error}`);
+        error: () => {
+            console.error('Error occurred');
         }
     };
     
@@ -212,7 +105,7 @@ async function main() {
     await loadWasm();
     
     // Setup fetch for FinnGen API
-    const restoreFetch = setupTestFetch('[cli-harness]');
+    setupTestFetch('[cli-harness]');
     
     // Run pipeline for each local file
     console.log('\nRunning meta-analysis pipeline...');
@@ -228,7 +121,7 @@ async function main() {
         
         if ('error' in result) {
             console.error(`Pipeline error for ${localFile.tag}:`, result.error);
-            process.exit(1);
+            throw new Error(result.error);
         }
         
         // Generate output filename
@@ -240,7 +133,7 @@ async function main() {
         const output = `${result.header}\n${result.data}`;
         writeFileSync(outputFile, output);
         
-        const rowCount = result.data.split('\n').filter(line => line.trim()).length;
+        const rowCount = result.data.split('\n').filter((line: string) => line.trim()).length;
         console.log(`✓ Written ${rowCount} rows to ${outputFile}`);
     }
     
